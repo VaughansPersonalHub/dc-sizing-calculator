@@ -11,7 +11,8 @@
 - Phase 0.5 (CI + Pages) — complete. GitHub Actions CI runs lint + build + tests on every push; `wrangler.toml` binds D1 + R2 to the Pages project.
 - Phase 0.75 (Cloudflare backend) — live. Pages Functions API under `functions/api/*` with Access JWT verification, D1 migrations applied remote (`engagements` + `audit_log`), R2 blob GET/PUT with optimistic concurrency (ETag / If-Match), sync layer skeleton in `src/sync/`. `CF_ACCESS_AUD` set on Production + Preview; 401s come back correctly for unauthed/forged requests.
 - Phase 1 (Reference Libraries) — editors live. Generic `LibraryTable` (TanStack v8, inline edit, add/delete, reset-to-seed, filter+sort) fronts six per-library column sets. Repository layer `src/db/repositories/*` is the only writer to Dexie; each upsert refreshes `data.store` which bumps `_libraryHash` and invalidates the engine cache.
-- Next: Phase 1.5 Engagement Setup Wizard + regional defaults application.
+- Phase 1.5 (Regional Defaults + Engagement Setup Wizard) — live. Dexie bumped to v2 with a new `opsProfiles` table keyed by engagementId; `.scc` envelope bumped to schemaVersion=2 (still accepts v1). Wizard walks name → region → flag review → create and writes the right defaults: MY/ID get halal + Surau + Ramadan; SG gets the 20 m SCDF cross-aisle; ID gets mandatory backup generator. EngagementsTab replaced with a real list that merges API + local-only rows.
+- Next: Phase 2 SKU ingestion (PapaParse streaming, Float32Array, 20k in <3s).
 
 ## Architecture (don't re-relitigate)
 
@@ -115,6 +116,14 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] Add row / delete row / reset-to-seed per library
 - [x] `data.store` library hash bumps on every edit → engine cache invalidates
 - [x] `npm run build` + `npm run lint` + `npm test` (17/17) all green (489 KB / 150 KB gz)
+
+## Phase 1.5 gate — verified
+
+- [x] Dexie v2 adds `opsProfiles` table; `.scc` envelope v2 round-trips it and still reads v1
+- [x] `buildDefaultOpsProfile(region)` + `regionalFeatureFlags(region)` drive the wizard
+- [x] MY / ID → halal, Surau, Ramadan (30 days × 0.82); SG → 20 m cross-aisle; ID → backup gen
+- [x] EngagementsTab lists API engagements + local-only fallback when API unreachable
+- [x] `npm run build` + `npm run lint` + `npm test` (24/24) all green (544 KB / 167 KB gz)
 
 ## What not to do
 

@@ -9,7 +9,7 @@ import type {
   PalletStandard,
   AutomationSystem,
 } from '../schemas/libraries';
-import type { Scenario } from '../schemas/scenario';
+import type { Scenario, OpsProfile } from '../schemas/scenario';
 
 export interface CacheEntry {
   hash: string;
@@ -37,6 +37,7 @@ export class DCDatabase extends Dexie {
   pallets!: Table<PalletStandard, string>;
   automation!: Table<AutomationSystem, string>;
   scenarios!: Table<Scenario, string>;
+  opsProfiles!: Table<OpsProfile, string>;
   resultsCache!: Table<CacheEntry, string>;
   appMeta!: Table<AppMeta, string>;
 
@@ -54,6 +55,12 @@ export class DCDatabase extends Dexie {
       scenarios: 'id, engagementId, isBaseline',
       resultsCache: 'hash, engagementId, scenarioId, createdAt',
       appMeta: 'key',
+    });
+    // v2 adds the opsProfiles table (1 row per engagement, pk=engagementId).
+    // Landed in Phase 1.5 — wizard writes region-specific defaults here and
+    // the baseline scenario reads them at engine time.
+    this.version(2).stores({
+      opsProfiles: 'engagementId',
     });
   }
 }

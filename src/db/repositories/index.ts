@@ -20,6 +20,8 @@ import type {
   PalletStandard,
   AutomationSystem,
 } from '../../schemas/libraries';
+import type { OpsProfile } from '../../schemas/scenario';
+import type { EngagementMeta } from '../../schemas/engagement';
 import { useDataStore } from '../../stores/data.store';
 
 export interface Repository<T, K extends string | number> {
@@ -154,6 +156,33 @@ export const palletsRepo: Repository<PalletStandard, string> = {
       await db.pallets.bulkPut(PALLET_SEEDS);
     });
     await refreshDataStore();
+  },
+};
+
+// Ops profile — one row per engagement. Not a reference library, but lives
+// alongside the repositories because it's the other Dexie-persisted piece
+// of per-engagement config the wizard writes.
+export const opsProfileRepo = {
+  async get(engagementId: string): Promise<OpsProfile | null> {
+    return (await db.opsProfiles.get(engagementId)) ?? null;
+  },
+  async put(profile: OpsProfile): Promise<void> {
+    await db.opsProfiles.put(profile);
+  },
+  async remove(engagementId: string): Promise<void> {
+    await db.opsProfiles.delete(engagementId);
+  },
+};
+
+export const engagementsLocalRepo = {
+  async get(id: string): Promise<EngagementMeta | null> {
+    return (await db.engagements.get(id)) ?? null;
+  },
+  async put(meta: EngagementMeta): Promise<void> {
+    await db.engagements.put(meta);
+  },
+  async list(): Promise<EngagementMeta[]> {
+    return db.engagements.toArray();
   },
 };
 

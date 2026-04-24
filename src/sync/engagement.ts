@@ -25,7 +25,7 @@ import type { RegionId } from '../schemas/regional';
 
 export async function listEngagements(): Promise<EngagementDto[]> {
   const res = await apiJson<EngagementListResponse>('/engagements');
-  useEngagementStore.setState({ availableEngagements: res.engagements as never });
+  useEngagementStore.setState({ availableEngagements: res.engagements });
   return res.engagements;
 }
 

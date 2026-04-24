@@ -20,9 +20,12 @@ import { gzipSync, gunzipSync } from 'fflate';
 import { db } from '../db/schema';
 import type { EngagementMeta } from '../schemas/engagement';
 import type { SkuRecord } from '../schemas/sku';
-import type { Scenario } from '../schemas/scenario';
+import type { Scenario, OpsProfile } from '../schemas/scenario';
 
-export const SCC_SCHEMA_VERSION = 1;
+// v2 adds opsProfile to the envelope. v1 blobs still decode (opsProfile
+// comes back as null and the wizard/engine treat that as "use region
+// defaults").
+export const SCC_SCHEMA_VERSION = 2;
 
 interface SkuRecordWire extends Omit<SkuRecord, 'weeklyUnits'> {
   weeklyUnitsB64: string;
@@ -35,6 +38,7 @@ interface SccEnvelope {
   engagement: EngagementMeta;
   skus: SkuRecordWire[];
   scenarios: Scenario[];
+  opsProfile: OpsProfile | null;
 }
 
 function float32ToBase64(arr: Float32Array): string {
@@ -85,10 +89,11 @@ function wireToSku(wire: SkuRecordWire): SkuRecord {
  * envelope, JSON-stringify, and gzip. Returns bytes ready to PUT to R2.
  */
 export async function exportEngagement(engagementId: string): Promise<Uint8Array> {
-  const [engagement, skus, scenarios] = await Promise.all([
+  const [engagement, skus, scenarios, opsProfile] = await Promise.all([
     db.engagements.get(engagementId),
     db.skus.where('engagementId').equals(engagementId).toArray(),
     db.scenarios.where('engagementId').equals(engagementId).toArray(),
+    db.opsProfiles.get(engagementId),
   ]);
   if (!engagement) throw new Error(`engagement ${engagementId} not found in Dexie`);
 
@@ -98,6 +103,7 @@ export async function exportEngagement(engagementId: string): Promise<Uint8Array
     engagement,
     skus: skus.map(skuToWire),
     scenarios,
+    opsProfile: opsProfile ?? null,
   };
 
   const json = JSON.stringify(envelope);
@@ -114,20 +120,24 @@ export function decodeEngagementBlob(bytes: Uint8Array): {
   engagement: EngagementMeta;
   skus: SkuRecord[];
   scenarios: Scenario[];
+  opsProfile: OpsProfile | null;
   schemaVersion: number;
   exportedAt: string;
 } {
   const json = new TextDecoder().decode(gunzipSync(bytes));
   const env = JSON.parse(json) as SccEnvelope;
-  if (env.schemaVersion !== SCC_SCHEMA_VERSION) {
+  // Accept both v1 (pre-opsProfile) and v2. Older blobs round-trip as
+  // opsProfile=null — the consumer falls back to region defaults.
+  if (env.schemaVersion !== 1 && env.schemaVersion !== 2) {
     throw new Error(
-      `unsupported .scc schema version ${env.schemaVersion} (expected ${SCC_SCHEMA_VERSION})`
+      `unsupported .scc schema version ${env.schemaVersion} (supported: 1, 2)`
     );
   }
   return {
     engagement: env.engagement,
     skus: env.skus.map(wireToSku),
     scenarios: env.scenarios,
+    opsProfile: env.opsProfile ?? null,
     schemaVersion: env.schemaVersion,
     exportedAt: env.exportedAt,
   };
@@ -146,11 +156,17 @@ export async function importEngagementBlob(
       `blob engagement id ${decoded.engagement.id} does not match target ${engagementId}`
     );
   }
-  await db.transaction('rw', [db.engagements, db.skus, db.scenarios], async () => {
-    await db.skus.where('engagementId').equals(engagementId).delete();
-    await db.scenarios.where('engagementId').equals(engagementId).delete();
-    await db.engagements.put(decoded.engagement);
-    if (decoded.skus.length) await db.skus.bulkPut(decoded.skus);
-    if (decoded.scenarios.length) await db.scenarios.bulkPut(decoded.scenarios);
-  });
+  await db.transaction(
+    'rw',
+    [db.engagements, db.skus, db.scenarios, db.opsProfiles],
+    async () => {
+      await db.skus.where('engagementId').equals(engagementId).delete();
+      await db.scenarios.where('engagementId').equals(engagementId).delete();
+      await db.opsProfiles.delete(engagementId);
+      await db.engagements.put(decoded.engagement);
+      if (decoded.skus.length) await db.skus.bulkPut(decoded.skus);
+      if (decoded.scenarios.length) await db.scenarios.bulkPut(decoded.scenarios);
+      if (decoded.opsProfile) await db.opsProfiles.put(decoded.opsProfile);
+    }
+  );
 }

@@ -1,17 +1,36 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { EngagementMeta, SyncStatus } from '../schemas/engagement';
+import type { SyncStatus } from '../schemas/engagement';
 import type { RegionId } from '../schemas/regional';
+
+// Mirrors functions/api/engagements DTO — dates as ISO strings so the
+// store stays JSON-clone-safe and the same shape can survive a
+// serialize/replay (eg devtools time travel, test harness).
+export interface EngagementSummary {
+  id: string;
+  name: string;
+  clientName: string | null;
+  regionProfile: string;
+  createdAt: string;
+  createdBy: string;
+  lastModifiedAt: string;
+  lastModifiedBy: string;
+  etag: string;
+  lockHolder: string | null;
+  status: 'active' | 'archived';
+  skuCount: number;
+  scenarioCount: number;
+}
 
 interface EngagementState {
   activeEngagementId: string | null;
-  availableEngagements: EngagementMeta[];
+  availableEngagements: EngagementSummary[];
   syncStatus: SyncStatus;
   lastSyncedAt: Date | null;
   regionProfile: RegionId | null;
   lastKnownEtag: string | null;
   setActiveEngagement: (id: string | null, region: RegionId | null) => void;
-  setAvailable: (list: EngagementMeta[]) => void;
+  setAvailable: (list: EngagementSummary[]) => void;
   setSyncStatus: (s: SyncStatus) => void;
   markSynced: (etag: string) => void;
   markDirty: () => void;

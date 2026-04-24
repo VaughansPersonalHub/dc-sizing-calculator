@@ -107,8 +107,23 @@ describe('sync/serialize — .scc envelope round-trip', () => {
       engagement: {},
       skus: [],
       scenarios: [],
+      opsProfile: null,
     };
     const gz = gzipSync(new TextEncoder().encode(JSON.stringify(envelope)), { level: 6 });
     expect(() => decodeEngagementBlob(gz)).toThrow(/schema version 99/);
+  });
+
+  it('accepts a legacy v1 blob (no opsProfile) and returns null for it', () => {
+    const envelope = {
+      schemaVersion: 1,
+      exportedAt: '2026-04-20T10:00:00Z',
+      engagement: { id: 'eng-legacy' },
+      skus: [],
+      scenarios: [],
+    };
+    const gz = gzipSync(new TextEncoder().encode(JSON.stringify(envelope)), { level: 6 });
+    const decoded = decodeEngagementBlob(gz);
+    expect(decoded.schemaVersion).toBe(1);
+    expect(decoded.opsProfile).toBeNull();
   });
 });
