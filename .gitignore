@@ -30,3 +30,12 @@ dist-ssr
 
 # Vitest / coverage
 /coverage/
+
+# Cloudflare local config (holds account IDs, API tokens)
+.cloudflare.local.md
+.dev.vars
+.wrangler/
+cloudfare_api.txt
+cloudflare_api.txt
+*.secret.txt
+*.token.txt
