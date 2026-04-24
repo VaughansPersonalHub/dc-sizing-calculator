@@ -12,7 +12,8 @@
 - Phase 0.75 (Cloudflare backend) — live. Pages Functions API under `functions/api/*` with Access JWT verification, D1 migrations applied remote (`engagements` + `audit_log`), R2 blob GET/PUT with optimistic concurrency (ETag / If-Match), sync layer skeleton in `src/sync/`. `CF_ACCESS_AUD` set on Production + Preview; 401s come back correctly for unauthed/forged requests.
 - Phase 1 (Reference Libraries) — editors live. Generic `LibraryTable` (TanStack v8, inline edit, add/delete, reset-to-seed, filter+sort) fronts six per-library column sets. Repository layer `src/db/repositories/*` is the only writer to Dexie; each upsert refreshes `data.store` which bumps `_libraryHash` and invalidates the engine cache.
 - Phase 1.5 (Regional Defaults + Engagement Setup Wizard) — live. Dexie bumped to v2 with a new `opsProfiles` table keyed by engagementId; `.scc` envelope bumped to schemaVersion=2 (still accepts v1). Wizard walks name → region → flag review → create and writes the right defaults: MY/ID get halal + Surau + Ramadan; SG gets the 20 m SCDF cross-aisle; ID gets mandatory backup generator. EngagementsTab replaced with a real list that merges API + local-only rows.
-- Next: Phase 2 SKU ingestion (PapaParse streaming, Float32Array, 20k in <3s).
+- Phase 2 (SKU Ingestion) — live. PapaParse streams CSV in 1 MiB chunks, each row goes through Zod + a Float32Array builder for the 52-week demand curve, then batches write through the new `src/ingestion/sku-repo.ts`. Perf: 20k rows parse + validate + Float32-build in ~520 ms (6× under the 3 s budget).
+- Next: Phase 2.5 Data Quality Dashboard (error counts + auto-fix actions before engine runs).
 
 ## Architecture (don't re-relitigate)
 
@@ -33,6 +34,7 @@ src/
     steps/          Step01Profiling.ts … (to come)
     models/         Shared enums used by main + worker
     validators/     Step 0 ValidationLayer (to come)
+  ingestion/        CSV → validated SkuRecord → Dexie. PapaParse + Zod + Float32Array.
   sync/             R2 push/pull (Phase 0.75)
   ui/
     tabs/           7 tabs (Engagements, Inputs, Reference, Design Rules, Scenarios, Outputs, Layout)
@@ -124,6 +126,15 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] MY / ID → halal, Surau, Ramadan (30 days × 0.82); SG → 20 m cross-aisle; ID → backup gen
 - [x] EngagementsTab lists API engagements + local-only fallback when API unreachable
 - [x] `npm run build` + `npm run lint` + `npm test` (24/24) all green (544 KB / 167 KB gz)
+
+## Phase 2 gate — verified
+
+- [x] CSV upload UI with drag-drop, progress, error summary in InputsTab
+- [x] PapaParse chunked streaming; per-row Zod + Float32Array 52-week build
+- [x] SKU rows scoped by engagementId via `src/ingestion/sku-repo.ts` (bulkPut on each batch)
+- [x] Perf: 20 000 rows in ~520 ms (SPEC budget is 3 s) — vitest integration test
+- [x] `npm run build` + `npm run lint` + `npm test` (26/26) all green (607 KB / 185 KB gz)
+- [ ] 500 KB bundle warning: will code-split in Phase 9 polish — no blocker for functional gate
 
 ## What not to do
 
