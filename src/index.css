@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 36 47% 56%;            /* SCConnect gold #c5a059 */
+    --primary-foreground: 0 0% 10%;   /* charcoal text on gold */
+    --secondary: 215 16% 34%;         /* slate */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 36 47% 56%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 10%;           /* charcoal */
+    --foreground: 0 0% 96%;
+    --card: 240 4% 14%;
+    --card-foreground: 0 0% 96%;
+    --popover: 240 4% 14%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 36 47% 56%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 215 16% 34%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 18%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 18%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 22%;
+    --input: 240 4% 22%;
+    --ring: 36 47% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
+}
