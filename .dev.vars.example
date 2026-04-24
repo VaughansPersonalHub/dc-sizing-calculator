@@ -1,0 +1,11 @@
+# Copy to .dev.vars (gitignored) for `wrangler pages dev`. Do NOT commit .dev.vars.
+# Values override those in wrangler.toml [vars] during local development.
+
+# Bypass Access JWT verification locally. NEVER set to true in production.
+DEV_AUTH_BYPASS=true
+DEV_USER_EMAIL=dev@scconnect.co.nz
+
+# Fill in once fetched from Access Application Overview tab, then deploy.
+# In production this is set via `wrangler pages secret put CF_ACCESS_AUD`
+# or the Pages dashboard (Settings → Environment variables).
+CF_ACCESS_AUD=

@@ -1,0 +1,29 @@
+# Cloudflare Pages + bindings for calc.scconnect.co.nz
+# Applies to both local `wrangler pages dev` and production Pages builds.
+# Secrets (CF_ACCESS_AUD once known, any future API keys) are NOT in here —
+# set them via `wrangler pages secret put` or the Pages dashboard.
+
+name = "dc-sizing-calculator"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+# Public (non-secret) env vars available to Pages Functions at runtime.
+# CF_ACCESS_AUD is intentionally absent here — it's a per-environment value
+# Vaughan fills in via the Pages dashboard once the Access app AUD tag is
+# captured (see .cloudflare.local.md).
+[vars]
+CF_ACCESS_TEAM_DOMAIN = "scconnect-tools.cloudflareaccess.com"
+CF_ACCESS_ISSUER = "https://scconnect-tools.cloudflareaccess.com"
+
+# D1 — engagement index + audit log. Migrations live in ./migrations.
+[[d1_databases]]
+binding = "DB"
+database_name = "scconnect-dc-sizing-meta"
+database_id = "e14e0614-c15d-4009-86dc-ac57b76570aa"
+migrations_dir = "migrations"
+
+# R2 — engagement .scc blobs + per-engagement history.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "scconnect-dc-sizing"

@@ -8,7 +8,9 @@
 ## Build status
 
 - Phase 0 (Foundation) — complete. Gate met: app mounts, tabs navigate, Dexie seeds 6 reference libraries on first load.
-- Next: Phase 0.5 CI, then Phase 0.75 Cloudflare backend (Access + Workers + R2 + D1), then Phase 1+.
+- Phase 0.5 (CI + Pages) — complete. GitHub Actions CI runs lint + build + tests on every push; `wrangler.toml` binds D1 + R2 to the Pages project.
+- Phase 0.75 (Cloudflare backend) — skeleton landed. Pages Functions API under `functions/api/*` with Access JWT verification, D1 migrations in `migrations/`, R2 blob GET/PUT with optimistic concurrency (ETag / If-Match), sync layer skeleton in `src/sync/`. Gate still open pending Vaughan filling in `CF_ACCESS_AUD` and running `wrangler d1 migrations apply scconnect-dc-sizing-meta`.
+- Next: Phase 1 reference library editors.
 
 ## Architecture (don't re-relitigate)
 
@@ -37,7 +39,19 @@ src/
   regional/         Per-region defaults for KR / TW / VN / MY / SG / ID
   schemas/          Zod schemas (validation at boundaries only)
   utils/            cn helper, id generator
-workers/            engine.worker.ts / tornado.worker.ts / layout.worker.ts
+workers/            engine.worker.ts / tornado.worker.ts / layout.worker.ts (browser Web Workers — do not confuse with Cloudflare Workers)
+functions/          Cloudflare Pages Functions (server-side). Each .ts file here is a route.
+  api/
+    _middleware.ts         Access JWT guard on every /api/* request
+    engagements/
+      index.ts             GET list / POST create
+      [id]/
+        index.ts           GET meta / DELETE archive
+        blob.ts            GET/PUT .scc with If-Match optimistic concurrency
+        history.ts         list R2 history objects for engagement
+        restore.ts         copy a history blob back to current.scc
+  utils/                   access.ts (JWT + JWKS), audit.ts, engagement.ts, env.ts, response.ts
+migrations/         D1 SQL migrations, applied via `wrangler d1 migrations apply`
 tests/              Vitest (tests/engine, tests/integration) + Playwright (tests/e2e)
 ```
 
@@ -45,12 +59,15 @@ tests/              Vitest (tests/engine, tests/integration) + Playwright (tests
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Vite dev server on :5173 |
-| `npm run build` | Type-check + Vite production build |
-| `npm test` | Vitest smoke suite |
+| `npm run dev` | Vite dev server on :5173 (proxies `/api` → wrangler :8788) |
+| `npm run build` | Type-check (app + workers + functions) + Vite production build |
+| `npm test` | Vitest smoke + integration suite |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run e2e` | Playwright (starts dev server) |
 | `npm run lint` | ESLint |
+| `npx wrangler pages dev dist` | Local Pages runtime with Functions (use after `npm run build`) |
+| `npx wrangler d1 migrations apply scconnect-dc-sizing-meta` | Apply D1 schema |
+| `npx wrangler d1 migrations apply scconnect-dc-sizing-meta --local` | Apply D1 schema to local miniflare DB |
 
 ## Conventions that matter
 
@@ -76,6 +93,18 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] Dexie schema v1 opens; seeds 6 reference libraries on first load
 - [x] HydrationSkeleton / StorageUnavailableBanner / HydrationErrorBanner handle failure modes
 - [x] Web Worker protocol + transferable Float32Array round-trip works
+
+## Phase 0.75 gate — pending manual verification by Vaughan
+
+- [x] `wrangler.toml` binds D1 `scconnect-dc-sizing-meta` + R2 `scconnect-dc-sizing`
+- [x] D1 migration `migrations/0001_init.sql` creates `engagements` + `audit_log` per SPEC §5.3
+- [x] Pages Functions verify Access JWT (RS256, JWKS cache) and write audit_log rows
+- [x] R2 GET/PUT with If-Match etag concurrency; history mirror + restore wired
+- [x] Sync layer skeleton (`src/sync/*`) round-trips .scc via fflate, Float32Array preserved
+- [x] `npm run build` + `npm run lint` + `npm test` (14/14) all green
+- [ ] Vaughan sets `CF_ACCESS_AUD` (Pages dashboard → Settings → Environment variables)
+- [ ] `wrangler d1 migrations apply scconnect-dc-sizing-meta` has run against prod
+- [ ] End-to-end: create engagement, save blob, pull it back, verify Access enforcement
 
 ## What not to do
 

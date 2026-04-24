@@ -14,6 +14,17 @@ export default defineConfig({
   worker: {
     format: 'es',
   },
+  server: {
+    // `wrangler pages dev` serves functions/api at :8788. When running
+    // `npm run dev` (:5173), forward /api so the sync layer sees a
+    // same-origin API just like production.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8788',
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
