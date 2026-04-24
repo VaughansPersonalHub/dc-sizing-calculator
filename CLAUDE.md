@@ -9,8 +9,9 @@
 
 - Phase 0 (Foundation) — complete. Gate met: app mounts, tabs navigate, Dexie seeds 6 reference libraries on first load.
 - Phase 0.5 (CI + Pages) — complete. GitHub Actions CI runs lint + build + tests on every push; `wrangler.toml` binds D1 + R2 to the Pages project.
-- Phase 0.75 (Cloudflare backend) — skeleton landed. Pages Functions API under `functions/api/*` with Access JWT verification, D1 migrations in `migrations/`, R2 blob GET/PUT with optimistic concurrency (ETag / If-Match), sync layer skeleton in `src/sync/`. Gate still open pending Vaughan filling in `CF_ACCESS_AUD` and running `wrangler d1 migrations apply scconnect-dc-sizing-meta`.
-- Next: Phase 1 reference library editors.
+- Phase 0.75 (Cloudflare backend) — live. Pages Functions API under `functions/api/*` with Access JWT verification, D1 migrations applied remote (`engagements` + `audit_log`), R2 blob GET/PUT with optimistic concurrency (ETag / If-Match), sync layer skeleton in `src/sync/`. `CF_ACCESS_AUD` set on Production + Preview; 401s come back correctly for unauthed/forged requests.
+- Phase 1 (Reference Libraries) — editors live. Generic `LibraryTable` (TanStack v8, inline edit, add/delete, reset-to-seed, filter+sort) fronts six per-library column sets. Repository layer `src/db/repositories/*` is the only writer to Dexie; each upsert refreshes `data.store` which bumps `_libraryHash` and invalidates the engine cache.
+- Next: Phase 1.5 Engagement Setup Wizard + regional defaults application.
 
 ## Architecture (don't re-relitigate)
 
@@ -26,6 +27,7 @@ src/
   app/              Hydration guard + root App
   stores/           6 Zustand stores (ui / engagement / data / engine / scenario / layout-view)
   db/               Dexie v1 schema (11 tables) + seed routine
+    repositories/   Write-through wrappers for each library (upsert/delete/resetToSeed) — the UI calls these, not Dexie directly
   engine/           Pure-TS calc pipeline (Steps 0–14)
     steps/          Step01Profiling.ts … (to come)
     models/         Shared enums used by main + worker
@@ -34,6 +36,7 @@ src/
   ui/
     tabs/           7 tabs (Engagements, Inputs, Reference, Design Rules, Scenarios, Outputs, Layout)
     components/     TabShell, Hydration skeleton, etc.
+      library/      LibraryTable (generic TanStack v8 editor) + per-library editors under editors/
     layout-renderer/  D3 + SVG (Phase 5 / 7)
   libraries/        Seed data for the 6 reference libraries
   regional/         Per-region defaults for KR / TW / VN / MY / SG / ID
@@ -94,17 +97,24 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] HydrationSkeleton / StorageUnavailableBanner / HydrationErrorBanner handle failure modes
 - [x] Web Worker protocol + transferable Float32Array round-trip works
 
-## Phase 0.75 gate — pending manual verification by Vaughan
+## Phase 0.75 gate — verified
 
 - [x] `wrangler.toml` binds D1 `scconnect-dc-sizing-meta` + R2 `scconnect-dc-sizing`
-- [x] D1 migration `migrations/0001_init.sql` creates `engagements` + `audit_log` per SPEC §5.3
+- [x] D1 migration `migrations/0001_init.sql` applied to remote (APAC SIN)
 - [x] Pages Functions verify Access JWT (RS256, JWKS cache) and write audit_log rows
 - [x] R2 GET/PUT with If-Match etag concurrency; history mirror + restore wired
 - [x] Sync layer skeleton (`src/sync/*`) round-trips .scc via fflate, Float32Array preserved
-- [x] `npm run build` + `npm run lint` + `npm test` (14/14) all green
-- [ ] Vaughan sets `CF_ACCESS_AUD` (Pages dashboard → Settings → Environment variables)
-- [ ] `wrangler d1 migrations apply scconnect-dc-sizing-meta` has run against prod
-- [ ] End-to-end: create engagement, save blob, pull it back, verify Access enforcement
+- [x] `CF_ACCESS_AUD` set on Production + Preview
+- [x] `/api/engagements` → 401 `missing_access_jwt` unauthed · 401 `unknown_kid` forged
+- [x] Login at calc.scconnect.co.nz hydrates behind Access
+
+## Phase 1 gate — verified
+
+- [x] All 6 libraries have editable TanStack grids under Reference tab
+- [x] Inline edit persists through `src/db/repositories/*` → Dexie bulkPut
+- [x] Add row / delete row / reset-to-seed per library
+- [x] `data.store` library hash bumps on every edit → engine cache invalidates
+- [x] `npm run build` + `npm run lint` + `npm test` (17/17) all green (489 KB / 150 KB gz)
 
 ## What not to do
 
