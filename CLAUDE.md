@@ -13,7 +13,8 @@
 - Phase 1 (Reference Libraries) — editors live. Generic `LibraryTable` (TanStack v8, inline edit, add/delete, reset-to-seed, filter+sort) fronts six per-library column sets. Repository layer `src/db/repositories/*` is the only writer to Dexie; each upsert refreshes `data.store` which bumps `_libraryHash` and invalidates the engine cache.
 - Phase 1.5 (Regional Defaults + Engagement Setup Wizard) — live. Dexie bumped to v2 with a new `opsProfiles` table keyed by engagementId; `.scc` envelope bumped to schemaVersion=2 (still accepts v1). Wizard walks name → region → flag review → create and writes the right defaults: MY/ID get halal + Surau + Ramadan; SG gets the 20 m SCDF cross-aisle; ID gets mandatory backup generator. EngagementsTab replaced with a real list that merges API + local-only rows.
 - Phase 2 (SKU Ingestion) — live. PapaParse streams CSV in 1 MiB chunks, each row goes through Zod + a Float32Array builder for the 52-week demand curve, then batches write through the new `src/ingestion/sku-repo.ts`. Perf: 20k rows parse + validate + Float32-build in ~520 ms (6× under the 3 s budget).
-- Next: Phase 2.5 Data Quality Dashboard (error counts + auto-fix actions before engine runs).
+- Phase 3 (Engine Core, Steps 0–6) — live. Pure-TS pipeline with mandatory gates 4.5 (clear height) and 4.6 (seismic mass) runs in a Web Worker via transferable Float32Array. Step 0 ValidationLayer ships every SPEC §7 code + auto-fix helpers (Phase 2.5 will consume these). Pipeline runs 5 000 SKUs end-to-end in ~36 ms (SPEC budget 50 ms). UI trigger lives on the Scenarios tab — happy path renders feasibility + per-step summary cards.
+- Next: Phase 2.5 Data Quality Dashboard (now unblocked — Step 0 ValidationLayer is in place).
 
 ## Architecture (don't re-relitigate)
 
@@ -31,9 +32,13 @@ src/
   db/               Dexie v1 schema (11 tables) + seed routine
     repositories/   Write-through wrappers for each library (upsert/delete/resetToSeed) — the UI calls these, not Dexie directly
   engine/           Pure-TS calc pipeline (Steps 0–14)
-    steps/          Step01Profiling.ts … (to come)
-    models/         Shared enums used by main + worker
-    validators/     Step 0 ValidationLayer (to come)
+    pipeline.ts     Orchestrator — runs Steps 0..6 in order, returns full result envelope
+    runner.ts       Main-thread façade — reads Dexie + stores, posts to worker
+    workerClient.ts Spawns the engine Worker, transfers Float32 demand
+    protocol.ts     Worker message shapes (run / progress / result / error)
+    steps/          Step01Profiling.ts, Step02ForwardGrowth.ts, Step03SlotSizing.ts, Step04Bays.ts (incl. 4.5 + 4.6), Step05Footprint.ts, Step06Throughput.ts
+    models/         Shared engine types (EngineSku, EngineOpsProfile, EnginePallet, EngineRackSystem, EngineBuildingEnvelope) — kept Zod-free for the worker
+    validators/     Step0ValidationLayer.ts — runValidationLayer + applyAutoFixes
   ingestion/        CSV → validated SkuRecord → Dexie. PapaParse + Zod + Float32Array.
   sync/             R2 push/pull (Phase 0.75)
   ui/
@@ -135,6 +140,17 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] Perf: 20 000 rows in ~520 ms (SPEC budget is 3 s) — vitest integration test
 - [x] `npm run build` + `npm run lint` + `npm test` (26/26) all green (607 KB / 185 KB gz)
 - [ ] 500 KB bundle warning: will code-split in Phase 9 polish — no blocker for functional gate
+
+## Phase 3 gate — verified
+
+- [x] Step 0 ValidationLayer: every SPEC §7 code + applyAutoFixes (4 actions)
+- [x] Steps 1–6 implemented as pure functions; pipeline.ts composes them
+- [x] Step 4.5 clear-height + Step 4.6 seismic-mass mandatory gates emit feasibility flags
+- [x] Web Worker runs the pipeline; Float32Array demand transferred (zero-copy)
+- [x] `runEngineForEngagement(engagementId)` reads Dexie, packs payload, posts to worker
+- [x] Scenarios tab "Run engine" button surfaces feasibility + per-step summary cards
+- [x] 5 000 SKUs end-to-end in ~36 ms (SPEC §14 budget is 50 ms — within budget)
+- [x] 43 new engine tests; 69/69 total passing; bundle 617 KB raw / 188 KB gz
 
 ## What not to do
 

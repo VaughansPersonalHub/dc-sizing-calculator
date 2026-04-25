@@ -1,13 +1,18 @@
 /// <reference lib="webworker" />
 import type { EngineRunRequest, EngineEvent } from '../src/engine/protocol';
+import { runPipeline, type PipelineInputs } from '../src/engine/pipeline';
+import type { EngineSku } from '../src/engine/models';
 
 /**
- * Engine worker — placeholder. Phase 3 fills in Steps 0–6 here, Phase 4 adds
- * 7–11. Contract: receive a single EngineRunRequest, stream progress events,
- * reply with a single result or error.
+ * Engine worker — Phase 3 implementation. Receives a single
+ * EngineRunRequest, decodes the transferred Float32 demand buffer back
+ * into per-SKU 52-week vectors, runs Steps 0–6 via the pipeline, and
+ * posts the resulting JSON. Errors fall through to engine.error events
+ * with the original stack so the main thread can surface them.
  */
 
 const ctx: DedicatedWorkerGlobalScope = self as never;
+const TOTAL_STEPS = 8;
 
 ctx.addEventListener('message', (event: MessageEvent<EngineRunRequest>) => {
   const req = event.data;
@@ -15,7 +20,6 @@ ctx.addEventListener('message', (event: MessageEvent<EngineRunRequest>) => {
   const t0 = performance.now();
 
   try {
-    // Decode demand buffer (each row is 52 weeks)
     const skuCount = req.payload.skuIds.length;
     const demand = new Float32Array(req.payload.demandBuffer);
     const expectedLen = skuCount * 52;
@@ -25,36 +29,26 @@ ctx.addEventListener('message', (event: MessageEvent<EngineRunRequest>) => {
       );
     }
 
-    progress('step_00_validation', 0, 14);
+    progress('decoding_inputs', 0, TOTAL_STEPS);
 
-    // Phase 3+ will replace this placeholder with actual step implementations.
-    // For now we compute per-SKU mean and total as a sanity check that the
-    // transferable buffer round-trips correctly.
-    let totalDemand = 0;
-    const means = new Float32Array(skuCount);
-    for (let i = 0; i < skuCount; i++) {
-      let sum = 0;
-      const base = i * 52;
-      for (let w = 0; w < 52; w++) sum += demand[base + w];
-      means[i] = sum / 52;
-      totalDemand += sum;
-    }
+    const pipelineInputs = decodeInputs(req.payload.inputsJson, req.payload.skuIds, demand);
 
-    progress('engine_placeholder_done', 14, 14);
+    progress('step_00_validation', 1, TOTAL_STEPS);
+    const result = runPipeline(pipelineInputs);
+    progress('step_06_throughput', TOTAL_STEPS, TOTAL_STEPS);
 
-    const output = {
-      placeholder: true,
-      skuCount,
-      totalDemand,
-      meanSampleFirst: Array.from(means.slice(0, Math.min(5, skuCount))),
-      inputsEcho: JSON.parse(req.payload.inputsJson) as unknown,
-    };
+    // Strip Float32Array fields from the worker output — JSON.stringify
+    // emits them as {0: 1.5, 1: 2.7, ...} objects, which is wasteful. The
+    // main thread can recompute peak vectors if it ever needs them.
+    const safeResult = stripFloat32(result);
+    const outputJson = JSON.stringify(safeResult);
+    const outputHash = hashString(outputJson);
 
     const done: EngineEvent = {
       type: 'engine.result',
       id: req.id,
-      outputJson: JSON.stringify(output),
-      outputHash: hashString(JSON.stringify(output)),
+      outputJson,
+      outputHash,
       elapsedMs: performance.now() - t0,
     };
     ctx.postMessage(done);
@@ -79,6 +73,61 @@ ctx.addEventListener('message', (event: MessageEvent<EngineRunRequest>) => {
     ctx.postMessage(evt);
   }
 });
+
+interface WorkerInputsJson {
+  skus: Omit<EngineSku, 'weeklyUnits'>[]; // weeklyUnits comes via demandBuffer
+  opsProfile: PipelineInputs['opsProfile'];
+  pallets: PipelineInputs['pallets'];
+  racks: PipelineInputs['racks'];
+  envelope: PipelineInputs['envelope'];
+  driverCurve?: PipelineInputs['driverCurve'];
+  halalRequired: boolean;
+  seismicCoefficient?: number;
+  avgPalletWeightKg?: number;
+  aisleOrientation?: PipelineInputs['aisleOrientation'];
+}
+
+function decodeInputs(
+  inputsJson: string,
+  skuIds: string[],
+  demand: Float32Array
+): PipelineInputs {
+  const parsed = JSON.parse(inputsJson) as WorkerInputsJson;
+  const skuById = new Map(parsed.skus.map((s) => [s.id, s]));
+
+  const skus: EngineSku[] = [];
+  for (let i = 0; i < skuIds.length; i++) {
+    const id = skuIds[i];
+    const meta = skuById.get(id);
+    if (!meta) throw new Error(`SKU id ${id} present in skuIds but missing from inputsJson.skus`);
+    const slice = new Float32Array(52);
+    for (let w = 0; w < 52; w++) slice[w] = demand[i * 52 + w];
+    skus.push({ ...meta, weeklyUnits: slice });
+  }
+
+  return {
+    skus,
+    opsProfile: parsed.opsProfile,
+    pallets: parsed.pallets,
+    racks: parsed.racks,
+    envelope: parsed.envelope,
+    driverCurve: parsed.driverCurve,
+    halalRequired: parsed.halalRequired,
+    seismicCoefficient: parsed.seismicCoefficient,
+    avgPalletWeightKg: parsed.avgPalletWeightKg,
+    aisleOrientation: parsed.aisleOrientation,
+  };
+}
+
+function stripFloat32(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj instanceof Float32Array) return Array.from(obj);
+  if (obj instanceof Set) return Array.from(obj);
+  if (Array.isArray(obj)) return obj.map(stripFloat32);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) out[k] = stripFloat32(v);
+  return out;
+}
 
 function hashString(s: string): string {
   let h = 5381;
