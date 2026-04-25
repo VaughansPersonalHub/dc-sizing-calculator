@@ -27,6 +27,8 @@ import {
 import { runStep06Throughput, type Step06Outputs } from './steps/Step06Throughput';
 import { runStep07Labour, type Step07Outputs } from './steps/Step07Labour';
 import { runStep08MheFleet, type Step08Outputs } from './steps/Step08MheFleet';
+import { runStep09DockSchedule, type Step09Outputs } from './steps/Step09DockSchedule';
+import { runStep10SupportAreas, type Step10Outputs } from './steps/Step10SupportAreas';
 import type {
   EngineSku,
   EngineOpsProfile,
@@ -52,6 +54,8 @@ export interface PipelineInputs {
   regional: EngineRegionalContext;
   driverCurve?: ForwardDriverCurve;
   halalRequired: boolean;
+  /** Engagement-level customs bonded flag for Step 10. */
+  isBonded?: boolean;
   /** Whether VNA was selected for the PFP zone (changes pallet model). */
   vnaSelected?: boolean;
   /** Engagement-level seismic Cs override (else derived from envelope category). */
@@ -77,6 +81,8 @@ export interface PipelineOutputs {
   step6: Step06Outputs;
   step7: Step07Outputs;
   step8: Step08Outputs;
+  step9: Step09Outputs;
+  step10: Step10Outputs;
   feasibility: { clearHeightOk: boolean; seismicOk: boolean; overall: boolean };
   meta: {
     schemaVersion: number;
@@ -185,6 +191,24 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     vnaSelected: inputs.vnaSelected,
   });
 
+  const step9 = runStep09DockSchedule({
+    step6,
+    opsProfile: inputs.opsProfile,
+    envelope: inputs.envelope,
+  });
+
+  const step10 = runStep10SupportAreas({
+    step5,
+    step6,
+    step7,
+    step8,
+    opsProfile: inputs.opsProfile,
+    envelope: inputs.envelope,
+    regional: inputs.regional,
+    halalRequired: inputs.halalRequired,
+    isBonded: inputs.isBonded ?? false,
+  });
+
   return {
     validation,
     step1,
@@ -197,6 +221,8 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     step6,
     step7,
     step8,
+    step9,
+    step10,
     feasibility: {
       clearHeightOk: step4_5.ok,
       seismicOk: step4_6.ok,

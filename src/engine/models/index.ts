@@ -59,6 +59,8 @@ export interface EngineOpsProfile {
 
   peakUplift: number;
   sigmaStorage: number;
+  percentileDocks: number;
+  percentileStaging: number;
 
   // Step 7 — availability factor method (NOT multiplicative stacking)
   absenteeismPct: number;

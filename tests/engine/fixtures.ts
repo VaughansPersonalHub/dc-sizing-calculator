@@ -20,6 +20,8 @@ export const OPS: EngineOpsProfile = {
   hoursPerShift: 10,
   peakUplift: 1.35,
   sigmaStorage: 1.0,
+  percentileDocks: 0.95,
+  percentileStaging: 0.95,
   absenteeismPct: 0.08,
   leaveFraction: 0.12,
   sickReliefPct: 0.05,

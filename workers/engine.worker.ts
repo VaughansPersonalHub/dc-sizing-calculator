@@ -85,6 +85,7 @@ interface WorkerInputsJson {
   regional: PipelineInputs['regional'];
   driverCurve?: PipelineInputs['driverCurve'];
   halalRequired: boolean;
+  isBonded?: boolean;
   vnaSelected?: boolean;
   seismicCoefficient?: number;
   avgPalletWeightKg?: number;
@@ -120,6 +121,7 @@ function decodeInputs(
     regional: parsed.regional,
     driverCurve: parsed.driverCurve,
     halalRequired: parsed.halalRequired,
+    isBonded: parsed.isBonded,
     vnaSelected: parsed.vnaSelected,
     seismicCoefficient: parsed.seismicCoefficient,
     avgPalletWeightKg: parsed.avgPalletWeightKg,

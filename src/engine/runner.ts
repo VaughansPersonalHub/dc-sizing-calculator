@@ -104,6 +104,7 @@ export async function runEngineForEngagement(
       mheLibrary: mhe.map(toEngineMheClass),
       regional: toEngineRegionalContext(engagement.regionProfile),
       halalRequired: engagement.halalCertifiedRequired,
+      isBonded: engagement.isBonded,
       vnaSelected: false,
     };
 
@@ -156,6 +157,8 @@ function toEngineOpsProfile(p: OpsProfile): EngineOpsProfile {
     hoursPerShift: p.hoursPerShift,
     peakUplift: p.peakUplift,
     sigmaStorage: p.sigmaStorage,
+    percentileDocks: p.percentileDocks,
+    percentileStaging: p.percentileStaging,
     absenteeismPct: p.absenteeismPct,
     leaveFraction: p.leaveFraction,
     sickReliefPct: p.sickReliefPct,
