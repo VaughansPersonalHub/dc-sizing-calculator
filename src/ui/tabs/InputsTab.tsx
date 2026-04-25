@@ -11,6 +11,7 @@ import {
   type IngestionStats,
 } from '../../ingestion';
 import { cn } from '../../utils/cn';
+import { DataQualityDashboard } from '../components/inputs/DataQualityDashboard';
 
 export function InputsTab() {
   const activeEngagementId = useEngagementStore((s) => s.activeEngagementId);
@@ -201,6 +202,8 @@ export function InputsTab() {
           Clear all SKUs
         </button>
       </div>
+
+      <DataQualityDashboard />
     </div>
   );
 }

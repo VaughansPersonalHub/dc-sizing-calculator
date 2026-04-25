@@ -13,8 +13,9 @@
 - Phase 1 (Reference Libraries) — editors live. Generic `LibraryTable` (TanStack v8, inline edit, add/delete, reset-to-seed, filter+sort) fronts six per-library column sets. Repository layer `src/db/repositories/*` is the only writer to Dexie; each upsert refreshes `data.store` which bumps `_libraryHash` and invalidates the engine cache.
 - Phase 1.5 (Regional Defaults + Engagement Setup Wizard) — live. Dexie bumped to v2 with a new `opsProfiles` table keyed by engagementId; `.scc` envelope bumped to schemaVersion=2 (still accepts v1). Wizard walks name → region → flag review → create and writes the right defaults: MY/ID get halal + Surau + Ramadan; SG gets the 20 m SCDF cross-aisle; ID gets mandatory backup generator. EngagementsTab replaced with a real list that merges API + local-only rows.
 - Phase 2 (SKU Ingestion) — live. PapaParse streams CSV in 1 MiB chunks, each row goes through Zod + a Float32Array builder for the 52-week demand curve, then batches write through the new `src/ingestion/sku-repo.ts`. Perf: 20k rows parse + validate + Float32-build in ~520 ms (6× under the 3 s budget).
-- Phase 3 (Engine Core, Steps 0–6) — live. Pure-TS pipeline with mandatory gates 4.5 (clear height) and 4.6 (seismic mass) runs in a Web Worker via transferable Float32Array. Step 0 ValidationLayer ships every SPEC §7 code + auto-fix helpers (Phase 2.5 will consume these). Pipeline runs 5 000 SKUs end-to-end in ~36 ms (SPEC budget 50 ms). UI trigger lives on the Scenarios tab — happy path renders feasibility + per-step summary cards.
-- Next: Phase 2.5 Data Quality Dashboard (now unblocked — Step 0 ValidationLayer is in place).
+- Phase 3 (Engine Core, Steps 0–6) — live. Pure-TS pipeline with mandatory gates 4.5 (clear height) and 4.6 (seismic mass) runs in a Web Worker via transferable Float32Array. Step 0 ValidationLayer ships every SPEC §7 code + auto-fix helpers. Pipeline runs 5 000 SKUs end-to-end in ~36 ms (SPEC budget 50 ms). UI trigger lives on the Scenarios tab — happy path renders feasibility + per-step summary cards.
+- Phase 2.5 (Data Quality Dashboard) — live. Surfaces Step 0 output (stats + per-code breakdown), exposes the four SPEC auto-fixes (clamp negatives, suppress zero-demand, cap CV, normalise channel mix), and gates the engine "Run" button behind an explicit Acknowledge. Acknowledgement is hash-locked to the current SKU set + halal flag — any CSV import or auto-fix application invalidates it.
+- Next: Phase 4 advanced engine (Steps 7–11) — labour with travel models, MHE, dock schedule, support areas, slab/seismic rollup.
 
 ## Architecture (don't re-relitigate)
 
@@ -151,6 +152,15 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] Scenarios tab "Run engine" button surfaces feasibility + per-step summary cards
 - [x] 5 000 SKUs end-to-end in ~36 ms (SPEC §14 budget is 50 ms — within budget)
 - [x] 43 new engine tests; 69/69 total passing; bundle 617 KB raw / 188 KB gz
+
+## Phase 2.5 gate — verified
+
+- [x] Data Quality Dashboard renders Step 0 stats + per-code counts beneath the Inputs upload
+- [x] Four auto-fix toggles (clamp negatives / suppress zero / cap CV / normalise channel mix)
+  call applyAutoFixes through the existing repository so Dexie + data.store stay in sync
+- [x] Acknowledgement hash-locked to (SKU set + halal flag); CSV import or fix-apply drops it
+- [x] Scenarios "Run engine" button disabled + warning banner until validation acknowledged
+- [x] 5 new tests on the acknowledge state machine; 74/74 total passing (633 KB / 193 KB gz)
 
 ## What not to do
 

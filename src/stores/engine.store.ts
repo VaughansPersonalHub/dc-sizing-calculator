@@ -3,6 +3,26 @@ import { immer } from 'zustand/middleware/immer';
 
 export type EngineStatus = 'idle' | 'running' | 'error';
 
+// Serialisable shape of a Step 0 ValidationResult — the live ValidationResult
+// uses Set<string> for suppressedSkus, which doesn't survive postMessage or
+// JSON round-trip. The dashboard converts before storing.
+export interface ValidationSummary {
+  fatalErrors: { skuId: string; code: string; message: string; severity: string }[];
+  warnings: { skuId: string; code: string; message: string; severity: string }[];
+  suppressedSkus: string[];
+  stats: {
+    totalSkus: number;
+    cleanSkus: number;
+    warningSkus: number;
+    fatalSkus: number;
+    suppressedSkus: number;
+    codesByCount: Record<string, number>;
+  };
+  ranAt: string;
+  /** Hash over the SKU set when the validation was computed. */
+  inputHash: string;
+}
+
 interface EngineState {
   status: EngineStatus;
   progress: { current: number; total: number };
@@ -10,11 +30,21 @@ interface EngineState {
   lastResultHash: string | null;
   cacheHits: number;
   _inputHash: string;
+
+  // Phase 2.5 — Data Quality Dashboard state
+  lastValidation: ValidationSummary | null;
+  /** When the user clicks "Acknowledge", we snapshot lastValidation.inputHash
+   *  here. Engine runs gated by validationAcknowledgedHash === lastValidation.inputHash. */
+  validationAcknowledgedHash: string | null;
+
   setStatus: (status: EngineStatus) => void;
   setProgress: (current: number, total: number) => void;
   setResult: (result: unknown, hash: string) => void;
   invalidate: (newInputHash: string) => void;
   recordCacheHit: () => void;
+
+  setValidation: (summary: ValidationSummary | null) => void;
+  acknowledgeValidation: () => void;
 }
 
 export const useEngineStore = create<EngineState>()(
@@ -25,6 +55,10 @@ export const useEngineStore = create<EngineState>()(
     lastResultHash: null,
     cacheHits: 0,
     _inputHash: '',
+
+    lastValidation: null,
+    validationAcknowledgedHash: null,
+
     setStatus: (status) =>
       set((s) => {
         s.status = status;
@@ -44,10 +78,31 @@ export const useEngineStore = create<EngineState>()(
         s._inputHash = newInputHash;
         s.lastResult = null;
         s.lastResultHash = null;
+        // Library or scenario change invalidates the validation
+        // acknowledgement. Same logic as the engine cache.
+        s.lastValidation = null;
+        s.validationAcknowledgedHash = null;
       }),
     recordCacheHit: () =>
       set((s) => {
         s.cacheHits += 1;
+      }),
+
+    setValidation: (summary) =>
+      set((s) => {
+        s.lastValidation = summary;
+        // If the inputs changed since the last acknowledgement, drop it.
+        if (
+          s.validationAcknowledgedHash !== null &&
+          summary !== null &&
+          summary.inputHash !== s.validationAcknowledgedHash
+        ) {
+          s.validationAcknowledgedHash = null;
+        }
+      }),
+    acknowledgeValidation: () =>
+      set((s) => {
+        if (s.lastValidation) s.validationAcknowledgedHash = s.lastValidation.inputHash;
       }),
   }))
 );

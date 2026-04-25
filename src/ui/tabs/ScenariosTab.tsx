@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Play, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useEngagementStore } from '../../stores/engagement.store';
 import { useEngineStore } from '../../stores/engine.store';
 import { useDataStore } from '../../stores/data.store';
@@ -12,10 +13,18 @@ export function ScenariosTab() {
   const status = useEngineStore((s) => s.status);
   const progress = useEngineStore((s) => s.progress);
   const lastResult = useEngineStore((s) => s.lastResult) as EngineResultShape | null;
+  const validation = useEngineStore((s) => s.lastValidation);
+  const acknowledgedHash = useEngineStore((s) => s.validationAcknowledgedHash);
   const [error, setError] = useState<string | null>(null);
   const [progressLabel, setProgressLabel] = useState<string>('');
 
-  const canRun = !!activeEngagementId && skuCount > 0 && status !== 'running';
+  const validationAcknowledged =
+    validation !== null && validation.inputHash === acknowledgedHash;
+  const canRun =
+    !!activeEngagementId &&
+    skuCount > 0 &&
+    status !== 'running' &&
+    validationAcknowledged;
 
   async function onRun() {
     if (!activeEngagementId) return;
@@ -52,6 +61,13 @@ export function ScenariosTab() {
       {activeEngagementId && skuCount === 0 && (
         <Banner kind="warning">
           Engagement open but no SKUs imported. Use the Inputs tab to upload a CSV.
+        </Banner>
+      )}
+      {activeEngagementId && skuCount > 0 && !validationAcknowledged && (
+        <Banner kind="warning">
+          Data Quality not yet acknowledged. Open the Inputs tab → Data Quality Dashboard,
+          review issues, optionally apply auto-fixes, then click <strong>Acknowledge</strong>.{' '}
+          <Link to="/inputs" className="underline">Go to Inputs</Link>.
         </Banner>
       )}
 
