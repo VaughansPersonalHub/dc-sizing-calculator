@@ -54,9 +54,16 @@ export interface EngineOpsProfile {
   operatingDaysPerYear: number;
   productivityFactor: number;
   productiveHoursPerDay: number;
+  shiftsPerDay: number;
+  hoursPerShift: number;
 
   peakUplift: number;
   sigmaStorage: number;
+
+  // Step 7 — availability factor method (NOT multiplicative stacking)
+  absenteeismPct: number;
+  leaveFraction: number;
+  sickReliefPct: number;
 
   horizontalHoneycombingFactor: number;
   gridEfficiencyThreshold: number;
@@ -77,6 +84,10 @@ export interface EngineOpsProfile {
   crossAisleWidthM: number;
 
   canopyAllowancePct: number;
+  canopyType: 'columned' | 'cantilever';
+  canopyOverhangM: number;
+  canopyCoverageExemptMaxM: number;
+
   maxSiteCoverage: number;
   phase2HorizontalPct: number;
   phase2VerticalPct: number;
@@ -85,6 +96,23 @@ export interface EngineOpsProfile {
 
   ordersPerBatch: number;
   repackSecPerPallet: number;
+  repackSecPerUnit: number;
+
+  // Step 10 — support areas
+  adminFte: number;
+  supervisorFte: number;
+  totalStaff: number;
+  vasBenches: number;
+  returnsRatePct: number;
+  returnsHandleTimeHours: number;
+  qcSampleRate: number;
+  qcDwellHours: number;
+  avgDgSkuFootprintM2: number;
+  dgMultiplier: number;
+  packerThroughput: number;
+  amenitiesArea: number;
+  trainingAreaM2: number;
+  firstAidAreaM2: number;
 
   palletFootprintM2: number;
 }
@@ -118,4 +146,65 @@ export interface EngineBuildingEnvelope {
   floor: { slabLoadingTPerM2: number; totalFloorAreaM2: number };
   seismic: { designCategory: string; allowableRatio: number };
   columnGrid: { spacingXM: number; spacingYM: number };
+  /** Per-temperature zone areas (m²) for Step 10 support areas. */
+  coldChain: {
+    ambientZoneM2: number;
+    chilledZoneM2: number;
+    frozenZoneM2: number;
+    antechamberRequired: boolean;
+    antechamberM2: number;
+  };
+  /** Customs / bonded zone params for Step 10. */
+  customsBonded: { required: boolean; holdAreaPct: number; fencedCageM2: number };
+  /** Mezzanine availability for Step 4.5 remediation suggestion. */
+  mezzanine: { available: boolean; tiers: number; perTierMaxM2: number[] };
+  /** Backup-power info for Step 10 (lithium kVA buffer + Indonesia mandate). */
+  power: { backupGeneratorKva: number; gridReliabilityHoursPerDay: number };
+}
+
+// MHE class — Step 8 fleet sizing.
+export interface EngineMheClass {
+  mhe_id: string;
+  category: string;
+  travelSpeedKph: number;
+  liftSpeedMpm: number;
+  liftHeightMmMax: number;
+  battery: {
+    type: 'lead_acid_swap' | 'lithium_opportunity' | 'fuel_cell' | 'none';
+    chargingFootprintM2PerUnit: number;
+    swapStationM2: number;
+    chargingKva: number;
+  };
+  utilisationTargetDefault: number;
+  /** Optional: ratePerTaskPerHour overrides (e.g. VNA with 28 putaway/hr). */
+  ratePerTaskPerHour?: Record<string, number>;
+}
+
+// Productivity cell — Step 7 labour. Pulled from the productivity library.
+export interface EngineProductivityCell {
+  method: string;
+  unitType: string; // 'pallet' | 'case' | 'each'
+  slotType: string; // 'PFP' | 'CLS' | 'Shelf' | 'Auto'
+  staticTimeSecPerUnit: number;
+  travelModelType: TravelModelType;
+  travelCoefficient: number;
+  baselineZoneAreaM2: number;
+  derivedRateAtBaseline: number;
+  vnaLiftSpeedMpm?: number;
+  shuttleTransferSec?: number;
+  craneHorizontalSpeedMps?: number;
+  craneLiftSpeedMps?: number;
+  pickDepositSec?: number;
+  g2pPortWalkDistanceM?: number;
+}
+
+// Region-scoped context that the engine reads but isn't part of opsProfile.
+// Drives Surau sizing, Ramadan derate, halal uplift, etc.
+export interface EngineRegionalContext {
+  regionId: string;
+  officeM2PerFte: number;
+  surauRequired: boolean;
+  muslimWorkforcePct: number;
+  ramadanDerate: { active: boolean; factor: number; days: number };
+  backupGeneratorMandatory: boolean;
 }

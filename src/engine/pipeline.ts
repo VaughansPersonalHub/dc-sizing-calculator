@@ -25,12 +25,17 @@ import {
   type AisleOrientation,
 } from './steps/Step05Footprint';
 import { runStep06Throughput, type Step06Outputs } from './steps/Step06Throughput';
+import { runStep07Labour, type Step07Outputs } from './steps/Step07Labour';
+import { runStep08MheFleet, type Step08Outputs } from './steps/Step08MheFleet';
 import type {
   EngineSku,
   EngineOpsProfile,
   EnginePallet,
   EngineRackSystem,
   EngineBuildingEnvelope,
+  EngineMheClass,
+  EngineProductivityCell,
+  EngineRegionalContext,
 } from './models';
 
 export interface PipelineInputs {
@@ -39,8 +44,16 @@ export interface PipelineInputs {
   pallets: EnginePallet[];
   racks: EngineRackSystem[];
   envelope: EngineBuildingEnvelope;
+  /** Productivity library (Step 7). Required for labour calc. */
+  productivity: EngineProductivityCell[];
+  /** MHE library (Step 8). Required for fleet calc. */
+  mheLibrary: EngineMheClass[];
+  /** Region-scoped context (Surau / Ramadan / officeM2/FTE). */
+  regional: EngineRegionalContext;
   driverCurve?: ForwardDriverCurve;
   halalRequired: boolean;
+  /** Whether VNA was selected for the PFP zone (changes pallet model). */
+  vnaSelected?: boolean;
   /** Engagement-level seismic Cs override (else derived from envelope category). */
   seismicCoefficient?: number;
   /** Pallet+load avg weight for Step 4.6. */
@@ -62,6 +75,8 @@ export interface PipelineOutputs {
   step4_6: SeismicMassResult;
   step5: Step05Outputs;
   step6: Step06Outputs;
+  step7: Step07Outputs;
+  step8: Step08Outputs;
   feasibility: { clearHeightOk: boolean; seismicOk: boolean; overall: boolean };
   meta: {
     schemaVersion: number;
@@ -154,6 +169,22 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     pallets: inputs.pallets,
   });
 
+  const step7 = runStep07Labour({
+    step5,
+    step6,
+    opsProfile: inputs.opsProfile,
+    productivity: inputs.productivity,
+    regional: inputs.regional,
+    vnaSelected: inputs.vnaSelected,
+  });
+
+  const step8 = runStep08MheFleet({
+    step7Tasks: step7.tasks,
+    mheLibrary: inputs.mheLibrary,
+    opsProfile: inputs.opsProfile,
+    vnaSelected: inputs.vnaSelected,
+  });
+
   return {
     validation,
     step1,
@@ -164,6 +195,8 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     step4_6,
     step5,
     step6,
+    step7,
+    step8,
     feasibility: {
       clearHeightOk: step4_5.ok,
       seismicOk: step4_6.ok,

@@ -9,72 +9,10 @@ import { runStep06Throughput } from '../../src/engine/steps/Step06Throughput';
 import { runStep01Profiling } from '../../src/engine/steps/Step01Profiling';
 import { runStep02ForwardGrowth } from '../../src/engine/steps/Step02ForwardGrowth';
 import { runStep03SlotSizing } from '../../src/engine/steps/Step03SlotSizing';
-import type {
-  EngineSku,
-  EngineOpsProfile,
-  EnginePallet,
-  EngineRackSystem,
-  EngineBuildingEnvelope,
-} from '../../src/engine/models';
+import type { EngineSku, EngineBuildingEnvelope } from '../../src/engine/models';
+import { OPS, PALLETS, RACK, ENVELOPE, mkSku } from './fixtures';
 
-const OPS: EngineOpsProfile = {
-  operatingDaysPerYear: 300,
-  productivityFactor: 0.82,
-  productiveHoursPerDay: 18.67,
-  peakUplift: 1.35,
-  sigmaStorage: 1.0,
-  horizontalHoneycombingFactor: 0.88,
-  gridEfficiencyThreshold: 0.88,
-  preferredAspectRatio: 1.6,
-  skuPeakCorrelationCoefficient: 0.3,
-  floorloadPalletisationYield: 0.88,
-  dsohDays: 14,
-  forwardFaceDsohDays: { A: 1.0, B: 2.5, C: 0, D: 0 },
-  dsohChangeByVelocity: { A: 0, B: 0, C: 0, D: 0 },
-  paretoBreakpoints: { A: 0.2, B: 0.5, C: 0.8, D: 1.0 },
-  replenTriggerDays: 0.5,
-  clsLaneFillFactor: 0.9,
-  crossAisleSpacingM: 22,
-  crossAisleWidthM: 2.4,
-  canopyAllowancePct: 0.11,
-  maxSiteCoverage: 0.55,
-  phase2HorizontalPct: 0.2,
-  phase2VerticalPct: 0.1,
-  softSpacePct: 0.2,
-  clearHeightMm: 12500,
-  ordersPerBatch: 5,
-  repackSecPerPallet: 90,
-  palletFootprintM2: 1.21,
-};
-
-const PALLETS: EnginePallet[] = [
-  { pallet_id: 'T11', dimensionsMm: { length: 1100, width: 1100, height: 150 }, maxLoadKg: 1000 },
-];
-
-const RACK: EngineRackSystem = {
-  system_id: 'selective_t11',
-  bay: { widthMm: 2400, depthMm: 1100, heightMmDefault: 9000 },
-  slotsPerBay: 2,
-  levelsDefault: 5,
-  load: { perLevelKg: 2000, maxLoadPerBeamPairKg: 3000, maxSinglePalletKg: 1500 },
-  aisle: { widthMmMin: 2800, widthMmDefault: 3000, crossAisleMm: 3500 },
-  flueSpace: { transverseMm: 150, longitudinalMm: 300 },
-  bottomBeamClearanceMm: 150,
-  beamThicknessMm: 100,
-  honeycombing: { verticalFactor: 0.92, horizontalDefault: 0.88 },
-  fillFactor: 0.95,
-  slotTypeCompat: ['PFP'],
-  densityRating: 'low',
-  structuralBayBlock: 3,
-  rackMassKgPerPosition: 45,
-};
-
-const ENVELOPE_TALL: EngineBuildingEnvelope = {
-  clearHeights: { usableRackM: 11, sprinklerClearanceM: 1 },
-  floor: { slabLoadingTPerM2: 5, totalFloorAreaM2: 10000 },
-  seismic: { designCategory: 'C', allowableRatio: 0.8 },
-  columnGrid: { spacingXM: 12, spacingYM: 24 },
-};
+const ENVELOPE_TALL = ENVELOPE;
 
 function pipeline(skus: EngineSku[]) {
   const step1 = runStep01Profiling({ skus, opsProfile: OPS, suppressed: new Set() });
@@ -88,28 +26,6 @@ function pipeline(skus: EngineSku[]) {
     racks: [RACK],
   });
   return { step1, step2, step3 };
-}
-
-function mkSku(id: string, weeklyMean: number, overrides: Partial<EngineSku> = {}): EngineSku {
-  const w = new Float32Array(52).fill(weeklyMean);
-  return {
-    id,
-    category: 'FMCG',
-    weeklyUnits: w,
-    weeksOnFile: 52,
-    unitCubeCm3: 5000,
-    unitWeightKg: 0.5,
-    caseQty: 24,
-    inboundPalletId: 'T11',
-    outboundPalletId: 'T11',
-    palletTi: 4,
-    palletHi: 5,
-    stackable: true,
-    tempClass: 'ambient',
-    halalStatus: 'halal',
-    channelMix: { retailB2bPct: 0.7, ecomDtcPct: 0.2, marketplacePct: 0.1 },
-    ...overrides,
-  };
 }
 
 describe('Step 4 — Aggregate to bays', () => {

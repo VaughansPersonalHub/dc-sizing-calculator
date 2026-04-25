@@ -80,8 +80,12 @@ interface WorkerInputsJson {
   pallets: PipelineInputs['pallets'];
   racks: PipelineInputs['racks'];
   envelope: PipelineInputs['envelope'];
+  productivity: PipelineInputs['productivity'];
+  mheLibrary: PipelineInputs['mheLibrary'];
+  regional: PipelineInputs['regional'];
   driverCurve?: PipelineInputs['driverCurve'];
   halalRequired: boolean;
+  vnaSelected?: boolean;
   seismicCoefficient?: number;
   avgPalletWeightKg?: number;
   aisleOrientation?: PipelineInputs['aisleOrientation'];
@@ -111,8 +115,12 @@ function decodeInputs(
     pallets: parsed.pallets,
     racks: parsed.racks,
     envelope: parsed.envelope,
+    productivity: parsed.productivity,
+    mheLibrary: parsed.mheLibrary,
+    regional: parsed.regional,
     driverCurve: parsed.driverCurve,
     halalRequired: parsed.halalRequired,
+    vnaSelected: parsed.vnaSelected,
     seismicCoefficient: parsed.seismicCoefficient,
     avgPalletWeightKg: parsed.avgPalletWeightKg,
     aisleOrientation: parsed.aisleOrientation,
