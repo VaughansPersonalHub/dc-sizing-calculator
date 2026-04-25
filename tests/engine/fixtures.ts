@@ -90,6 +90,7 @@ export const RACK: EngineRackSystem = {
 };
 
 export const ENVELOPE: EngineBuildingEnvelope = {
+  envelope: { lengthM: 125, widthM: 80 },
   clearHeights: { usableRackM: 11, sprinklerClearanceM: 1 },
   floor: { slabLoadingTPerM2: 5, totalFloorAreaM2: 10000 },
   seismic: { designCategory: 'C', allowableRatio: 0.8 },

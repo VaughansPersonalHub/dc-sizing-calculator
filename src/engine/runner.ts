@@ -297,6 +297,10 @@ function toEngineRack(r: RackSystem) {
 
 function toEngineEnvelope(b: BuildingTemplate) {
   return {
+    envelope: {
+      lengthM: b.envelope.lengthM,
+      widthM: b.envelope.widthM,
+    },
     clearHeights: {
       usableRackM: b.clearHeights.usableRackM,
       sprinklerClearanceM: b.clearHeights.sprinklerClearanceM,

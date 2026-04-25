@@ -144,6 +144,8 @@ export interface EngineRackSystem {
 }
 
 export interface EngineBuildingEnvelope {
+  /** Building dimensions (m). Layout solver packs against this rectangle. */
+  envelope: { lengthM: number; widthM: number };
   clearHeights: { usableRackM: number; sprinklerClearanceM: number };
   floor: { slabLoadingTPerM2: number; totalFloorAreaM2: number };
   seismic: { designCategory: string; allowableRatio: number };
