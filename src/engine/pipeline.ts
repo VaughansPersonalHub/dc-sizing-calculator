@@ -29,6 +29,7 @@ import { runStep07Labour, type Step07Outputs } from './steps/Step07Labour';
 import { runStep08MheFleet, type Step08Outputs } from './steps/Step08MheFleet';
 import { runStep09DockSchedule, type Step09Outputs } from './steps/Step09DockSchedule';
 import { runStep10SupportAreas, type Step10Outputs } from './steps/Step10SupportAreas';
+import { runStep11FootprintRollup, type Step11Outputs } from './steps/Step11FootprintRollup';
 import type {
   EngineSku,
   EngineOpsProfile,
@@ -83,7 +84,14 @@ export interface PipelineOutputs {
   step8: Step08Outputs;
   step9: Step09Outputs;
   step10: Step10Outputs;
-  feasibility: { clearHeightOk: boolean; seismicOk: boolean; overall: boolean };
+  step11: Step11Outputs;
+  feasibility: {
+    clearHeightOk: boolean;
+    seismicOk: boolean;
+    slabOk: boolean;
+    envelopeOk: boolean;
+    overall: boolean;
+  };
   meta: {
     schemaVersion: number;
     completedAt: string;
@@ -209,6 +217,17 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     isBonded: inputs.isBonded ?? false,
   });
 
+  const step11 = runStep11FootprintRollup({
+    step3,
+    step4,
+    step4_5,
+    step4_6,
+    step5,
+    step10,
+    opsProfile: inputs.opsProfile,
+    envelope: inputs.envelope,
+  });
+
   return {
     validation,
     step1,
@@ -223,10 +242,18 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     step8,
     step9,
     step10,
+    step11,
     feasibility: {
       clearHeightOk: step4_5.ok,
       seismicOk: step4_6.ok,
-      overall: step4_5.ok && step4_6.ok && validation.fatalErrors.length === 0,
+      slabOk: !step11.structural.slabFailure,
+      envelopeOk: !step11.structural.overEnvelope,
+      overall:
+        step4_5.ok &&
+        step4_6.ok &&
+        !step11.structural.slabFailure &&
+        !step11.structural.overEnvelope &&
+        validation.fatalErrors.length === 0,
     },
     meta: {
       schemaVersion: PIPELINE_SCHEMA_VERSION,

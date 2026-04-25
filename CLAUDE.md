@@ -15,7 +15,8 @@
 - Phase 2 (SKU Ingestion) — live. PapaParse streams CSV in 1 MiB chunks, each row goes through Zod + a Float32Array builder for the 52-week demand curve, then batches write through the new `src/ingestion/sku-repo.ts`. Perf: 20k rows parse + validate + Float32-build in ~520 ms (6× under the 3 s budget).
 - Phase 3 (Engine Core, Steps 0–6) — live. Pure-TS pipeline with mandatory gates 4.5 (clear height) and 4.6 (seismic mass) runs in a Web Worker via transferable Float32Array. Step 0 ValidationLayer ships every SPEC §7 code + auto-fix helpers. Pipeline runs 5 000 SKUs end-to-end in ~36 ms (SPEC budget 50 ms). UI trigger lives on the Scenarios tab — happy path renders feasibility + per-step summary cards.
 - Phase 2.5 (Data Quality Dashboard) — live. Surfaces Step 0 output (stats + per-code breakdown), exposes the four SPEC auto-fixes (clamp negatives, suppress zero-demand, cap CV, normalise channel mix), and gates the engine "Run" button behind an explicit Acknowledge. Acknowledgement is hash-locked to the current SKU set + halal flag — any CSV import or auto-fix application invalidates it.
-- Next: Phase 4 advanced engine (Steps 7–11) — labour with travel models, MHE, dock schedule, support areas, slab/seismic rollup.
+- Phase 4 (Engine Steps 7–11) — live. Step 7 labour applies the seven SPEC travel models (sqrt_area / sequential_hv / shuttle_cycle / crane_cycle / g2p_port / amr_fleet / zero), the availability factor method (NOT multiplicative summing), and Ramadan annual derate for MY/ID. Step 8 fleet sizes MHE per battery chemistry (lithium opportunity / lead-acid swap / fuel cell). Step 9 sizes inbound + outbound doors from blended container mix and bimodal staging (fast cross-dock vs QC/decant). Step 10 rolls up support areas including Surau (15m²/50 muslim staff + 6m² ablution), customs (bonded engagements only), halal uplift factor, ante-chamber, lithium kVA buffer. Step 11 totals operational + officeAndAmenities + canopy and runs four feasibility gates (clearHeight, seismic, slab UDL, envelope fit). Scenarios tab surfaces all 11 steps end-to-end.
+- Next: Phase 5 layout renderer (Step 13) + Phase 6 scenario engine + tornado (Step 14).
 
 ## Architecture (don't re-relitigate)
 
@@ -33,12 +34,12 @@ src/
   db/               Dexie v1 schema (11 tables) + seed routine
     repositories/   Write-through wrappers for each library (upsert/delete/resetToSeed) — the UI calls these, not Dexie directly
   engine/           Pure-TS calc pipeline (Steps 0–14)
-    pipeline.ts     Orchestrator — runs Steps 0..6 in order, returns full result envelope
+    pipeline.ts     Orchestrator — runs Steps 0..11 in order, returns full result envelope
     runner.ts       Main-thread façade — reads Dexie + stores, posts to worker
     workerClient.ts Spawns the engine Worker, transfers Float32 demand
     protocol.ts     Worker message shapes (run / progress / result / error)
-    steps/          Step01Profiling.ts, Step02ForwardGrowth.ts, Step03SlotSizing.ts, Step04Bays.ts (incl. 4.5 + 4.6), Step05Footprint.ts, Step06Throughput.ts
-    models/         Shared engine types (EngineSku, EngineOpsProfile, EnginePallet, EngineRackSystem, EngineBuildingEnvelope) — kept Zod-free for the worker
+    steps/          Step01Profiling.ts, Step02ForwardGrowth.ts, Step03SlotSizing.ts, Step04Bays.ts (incl. 4.5 + 4.6), Step05Footprint.ts, Step06Throughput.ts, Step07Labour.ts, Step08MheFleet.ts, Step09DockSchedule.ts, Step10SupportAreas.ts, Step11FootprintRollup.ts
+    models/         Shared engine types (EngineSku, EngineOpsProfile, EnginePallet, EngineRackSystem, EngineBuildingEnvelope, EngineMheClass, EngineProductivityCell, EngineRegionalContext) — kept Zod-free for the worker
     validators/     Step0ValidationLayer.ts — runValidationLayer + applyAutoFixes
   ingestion/        CSV → validated SkuRecord → Dexie. PapaParse + Zod + Float32Array.
   sync/             R2 push/pull (Phase 0.75)
@@ -161,6 +162,18 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] Acknowledgement hash-locked to (SKU set + halal flag); CSV import or fix-apply drops it
 - [x] Scenarios "Run engine" button disabled + warning banner until validation acknowledged
 - [x] 5 new tests on the acknowledge state machine; 74/74 total passing (633 KB / 193 KB gz)
+
+## Phase 4 gate — verified
+
+- [x] Step 7 Labour: seven travel models, availability factor method, Ramadan derate, batch multiplier, WALKING_PICK_IN_LARGE_ZONE warning
+- [x] Step 8 MHE Fleet: per-battery available hours (AMR 22h×7d×50w / lithium / lead-acid swap penalty / fuel cell), utilisation target, charging footprint + kVA roll-up, VNA routing override
+- [x] Step 9 Dock Schedule: blended container mix (40HC pal/floor, 20ft pal/floor, curtain, cross-dock, van), bimodal staging, percentileDocks
+- [x] Step 10 Support Areas: office, Surau (≥40 muslim trigger), customs (bonded), VAS, returns, QC, DG, pack bench, empty pallet, waste, ante-chamber, lithium kVA buffer, halal uplift factor
+- [x] Step 11 Footprint Roll-up: operational × (1 + halal), canopy in-coverage rule (columned vs cantilever > exempt), siteArea = siteCoverage / maxSiteCoverage, soft-space split, four feasibility gates {slab, seismic, envelope, clearHeight}
+- [x] Pipeline pass-through: productivity library, MHE library, regional context (Surau / Ramadan / officeM2/FTE), isBonded flag
+- [x] Scenarios tab surfaces Steps 7–11 alongside existing Steps 0–6 cards
+- [x] 37 new engine tests (Step 7+8: 10, Step 9+10: 16, Step 11: 11); 111/111 total passing
+- [x] `npm run build` + `npm run lint` (1 pre-existing warning) green; bundle 639 KB / 195 KB gz
 
 ## What not to do
 
