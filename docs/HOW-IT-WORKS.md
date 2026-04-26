@@ -59,105 +59,281 @@ SKU CSV ──► Step 0 (validate) ──► Step 1 (profile, ABC, CV)
 
 ## What each step does
 
-### Step 0 — Data validation
+> The per-step summaries below are auto-generated from
+> [`src/ui/help/step-explainers.ts`](../src/ui/help/step-explainers.ts).
+> Edit the TS file, then run `npm run docs:build` and commit. A vitest drift
+> guard fails the build if the two diverge.
 
-Runs every SPEC §7 data-quality check on your SKU set: fatal errors,
-warnings, suppressions, per-code counts. Engine refuses to run until you
-acknowledge the result. Four auto-fixes are available — each is reversible
-and invalidates the acknowledgement.
+<!-- BEGIN GENERATED:step-summaries -->
 
-### Step 1 — Demand profiling & ABC
+### Step 0 · Data validation
 
-Computes per-SKU velocity (lines/day), cube velocity (cm³/day), CV (volatility),
-and ABC class (A = top 80% demand, B = next 15%, C = tail 5%). Sets the
-foundation for everything downstream.
+Runs every SPEC §7 data-quality check on the SKU set and emits errors / warnings / suppressions. Engine refuses to run until acknowledged.
 
-### Step 2 — Forward growth
+*Sensitivity:* HIGH — every downstream step depends on a clean baseline. Bad inputs propagate through the entire pipeline.
 
-Projects demand from Year 1 to the design horizon and picks the **peak year**
-— the one that drives sizing. Compound growth uniform across all SKUs (no
-per-SKU growth curves yet).
+### Step 1 · Demand profiling & ABC
 
-### Step 3 — Slot sizing
+Computes per-SKU velocity (lines/day), cube velocity, ABC class, seasonality flag, and aggregate daily totals.
 
-Allocates each SKU to a slot type (PFP / CLS / Shelf S/M/L) and computes
-positions needed. Storage qty = lines/day × DSOH × peakYearMultiplier.
-Slot type via {ABC × velocity × cube} threshold per SPEC §4.3.
+*Sensitivity:* MODERATE — drives Step 3 slot allocation and Step 7 labour split. Sensitive to channel mix and CV cap.
 
-### Step 4 — Rack bay alignment
+### Step 2 · Forward growth
 
-Number of structural rack bays per zone, aligned to bay width and the
-structural bay block. `bays_raw = positions / slotsPerBay / levels`, then
-ceiling-rounded to the bay-block multiple.
+Projects demand from Year 1 baseline to the design horizon, picks the peak year for sizing.
 
-### Step 4.5 — Clear height (mandatory gate)
+*Sensitivity:* HIGH — peakYear drives every sizing-step output. Linear in growth rate; small assumption change ≫ output change.
 
-Verifies usable rack height (eaves − sprinkler clearance − bottom-beam − beam
-thickness) is enough for the levels Step 4 wants. Failure shrinks levels and
-inflates Step 5 footprint.
+### Step 3 · Slot sizing (PFP / CLS / Shelf)
 
-### Step 4.6 — Seismic mass (mandatory gate)
+Allocates each SKU to a slot type — PFP (pick-from-pallet) / CLS (carton-live-storage) / Shelf S/M/L — and computes positions needed.
 
-Verifies total racked mass against the building's allowable seismic mass for
-the design category. Failure drives anchorage, bracing, or worst-case shell
-upgrade.
+*Sensitivity:* HIGH — slot counts feed Step 4 bays and Step 5 footprint. Especially sensitive to DSOH per channel.
 
-### Step 5 — Storage footprint
+### Step 4 · Rack bay alignment
 
-Converts aligned bays per zone into m², applying grid efficiency (aisles,
-cross-aisles, structural waste, honeycombing). The single biggest contributor
-to GFA.
+Computes the number of structural rack bays needed per zone, aligned to bay width and the structural bay block.
 
-### Step 6 — Throughput
+*Sensitivity:* LOW-MODERATE — rounding losses at structural-block alignment can cost 5-15% per zone.
 
-Daily inbound pallets, outbound pallets, pick lines, plus a CV-based peak
-uplift: `peak = avg × (1 + peakUpliftFactor × CV)`. Drives Step 7 labour,
-Step 8 MHE, Step 9 docks.
+### Step 4.5 · Clear height (mandatory gate)
 
-### Step 7 — Labour
+Verifies that the building's available clear height supports the rack levels Step 4 wants. Hard gate — failure marks the engagement infeasible until remediated.
 
-Sizes peak FTE per task using one of seven travel models (sqrt_area /
-sequential_hv / shuttle_cycle / crane_cycle / g2p_port / amr_fleet / zero).
-Applies multiplicative availability factor (SPEC §8.3) and Ramadan derate
-(MY/ID, 30 days × 0.82×). Largest opex driver.
+*Sensitivity:* BINARY — pass/fail. If short, Step 4 levels reduce, footprint grows in Step 5, GFA goes up.
 
-### Step 8 — MHE fleet & charging
+### Step 4.6 · Seismic mass (mandatory gate)
 
-Per-task fleet size with battery-chemistry-aware available hours (lithium
-opportunity 23 h/d × 5 d/wk; lead-acid swap 18; fuel cell 23; AMR 22 × 7).
-Charging area + kVA roll up.
+Verifies total racked mass against the building's allowable seismic mass for the design category. Hard gate.
 
-### Step 9 — Dock schedule
+*Sensitivity:* BINARY — drives anchorage, bracing, and worst-case the building shell upgrade.
 
-Inbound + outbound doors via blended container mix (40HC pal/floor, 20ft pal/floor,
-curtain, cross-dock, van) and bimodal staging (fast cross-dock vs slow
-QC/decant). Peak day is a Poisson tail; percentile factor 1.5 covers the
-90th-percentile day.
+### Step 5 · Storage footprint
 
-### Step 10 — Support areas
+Converts aligned bays per zone into m², applying grid efficiency (aisles, cross-aisles, structural waste, honeycombing).
 
-Office (1 m²/FTE), Surau (MY/ID — 1 m² per 50 muslim staff + 6 m² ablution),
-customs (when bonded), VAS, returns, QC, DG, pack bench, empty pallet, waste,
-antechamber (cold-chain), lithium kVA buffer.
+*Sensitivity:* HIGH — single biggest contributor to GFA. Sensitive to honeycombing factors (vertical, horizontal).
 
-### Step 11 — Footprint roll-up & feasibility
+### Step 6 · Throughput (daily + peak)
 
-Sums operational + office + canopy + soft-space; computes site area; applies
-four feasibility gates: slab UDL, seismic, envelope, clear height. Halal
-uplift applies to whole operational area when halalCertifiedRequired.
+Computes daily inbound pallets, outbound pallets, and pick lines, then applies CV-based peak uplift.
 
-### Step 12 — Automation override
+*Sensitivity:* HIGH — peak drives Step 7 labour, Step 8 MHE fleet, Step 9 docks.
 
-When you pick an automation system, replaces conventional storage zones with
-the system's footprint + a front-end induction area. Sizes robots, ports,
-throughput capacity, kVA. Density is a step function; throughput uniform
-across the day.
+### Step 7 · Labour (FTE w/ travel models)
 
-### Step 14 — Tornado sensitivity
+Sizes peak FTE per task using one of seven travel models, applies availability factor (multiplicative method) and Ramadan derate.
 
-Sweeps 17 SPEC parameters at low/high (34 variants), ranks by weighted
-footprint + FTE delta. Each parameter swings independently — covariance not
-modelled. The `α` weight (default 0.5) controls footprint vs FTE preference.
+*Sensitivity:* VERY HIGH — labour is the largest opex driver. Most sensitive to productivity confidence + travel coefficient.
+
+### Step 8 · MHE fleet & charging
+
+Sizes MHE fleet per task category, accounts for battery chemistry's charging downtime, computes charging area and kVA.
+
+*Sensitivity:* MODERATE — fleet size is integer-rounded so step changes occur at unit boundaries.
+
+### Step 9 · Dock schedule (inbound + outbound)
+
+Sizes inbound/outbound dock doors using a blended container mix and bimodal staging (fast cross-dock vs QC/decant).
+
+*Sensitivity:* MODERATE-HIGH — peak day is a Poisson tail; percentile_factor sets the safety margin.
+
+### Step 10 · Support areas
+
+Sums all non-storage areas: office, surau (MY/ID), customs (bonded), VAS, returns, QC, DG, pack bench, empty pallet, waste, antechamber (cold), lithium kVA buffer.
+
+*Sensitivity:* LOW-MODERATE — support is ≤ 25% of GFA typically, but Surau / customs / antechamber can each add significant area.
+
+### Step 11 · Footprint roll-up & feasibility
+
+Sums operational + office + canopy + soft-space; computes site area; applies four feasibility gates {slab UDL, seismic, envelope, clear height}.
+
+*Sensitivity:* HIGH — final GFA. Sensitive to halal uplift, soft-space %, canopy treatment.
+
+### Step 12 · Automation override
+
+When an automation system is selected, replaces conventional storage zones with the system's footprint + front-end induction area.
+
+*Sensitivity:* HIGH — automation can swing footprint −50% to +20% depending on system & SKU mix.
+
+### Step 14 · Tornado sensitivity
+
+Runs 17 SPEC §13 parameters at low/high (34 variants) and ranks by weighted footprint + FTE delta.
+
+*Sensitivity:* META — this IS the sensitivity layer.
+
+<!-- END GENERATED:step-summaries -->
+
+---
+
+## Sources & citations
+
+> Auto-generated from [`src/ui/help/citations.ts`](../src/ui/help/citations.ts).
+> Edit the TS file, then run `npm run docs:build`.
+
+<!-- BEGIN GENERATED:citations -->
+
+### Surau (prayer room) ratio
+
+**Value:** 1 m² per 50 muslim staff + 6 m² ablution area
+
+**Source:** JAKIM (Jabatan Kemajuan Islam Malaysia)
+
+**Reference:** JAKIM 2018 housing-guidance booklet for Halal-certified facilities; SPEC §6.2 MY/ID profiles encode the same ratio.
+
+**Used by:** Step 10 · Support areas
+
+**Notes:** Trigger threshold ≥ 40 muslim staff. Indonesia (MUI) defaults to the same ratio.
+
+### Halal segregation uplift
+
+**Value:** ~15% operational area uplift when halalCertifiedRequired
+
+**Source:** JAKIM / MUI segregation rules
+
+**Reference:** JAKIM Halal Manual Procedure 2014 (rack + dock + receiving lane segregation). 15% derived from prior SCConnect engagements in MY/ID.
+
+**Used by:** Step 10 · Support areas · Step 11 · Footprint roll-up
+
+**Notes:** Engagement override available. Lower if existing rack inventory can be repurposed; higher for full duplication.
+
+### SCDF cross-aisle / fire compartment
+
+**Value:** 20 m maximum cross-aisle / fire-compartment dimension (SG)
+
+**Source:** Singapore Civil Defence Force (SCDF)
+
+**Reference:** SCDF Fire Code 2018 §6.4 (storage occupancy); applied to SG region defaults only.
+
+**URL:** <https://www.scdf.gov.sg/firecode/>
+
+**Used by:** Step 5 · Storage footprint
+
+**Notes:** Other ASEAN markets default to FM Global / NFPA 13.
+
+### ESFR sprinkler clearance
+
+**Value:** 1 m vertical clearance between top of stored goods and ESFR sprinkler deflector
+
+**Source:** FM Global Data Sheet 8-9
+
+**Reference:** FM Global Property Loss Prevention Data Sheet 8-9 (Storage of Class 1, 2, 3, 4 and Plastic Commodities); SPEC default for ESFR_K25.
+
+**URL:** <https://www.fmglobaldatasheets.com/>
+
+**Used by:** Step 4.5 · Clear height
+
+**Notes:** In-rack sprinkler systems can reduce this — not modelled in v1; engagement override available.
+
+### Walking pick speed
+
+**Value:** ~0.5 m/s laden walking, ~1.0 m/s empty walking
+
+**Source:** MTM-2 (Methods-Time Measurement)
+
+**Reference:** MTM-2 standard times (1965, refined 2003). SPEC productivity library uses these as the floor for sqrt-area travel-coefficient calibration.
+
+**Used by:** Step 7 · Labour
+
+**Notes:** Region-calibrated overrides apply: KR/SG dense layouts ≈ 0.45 m/s, MY/ID open layouts ≈ 0.55 m/s.
+
+### Slab UDL — typical industrial
+
+**Value:** 5 t/m² (default for non-specified slab)
+
+**Source:** Industry rule of thumb (ASEAN industrial)
+
+**Reference:** Common floor-loading spec for greenfield ASEAN logistics; SPEC default. Specialty cold-store / multi-story DCs typically 7-10 t/m².
+
+**Used by:** Step 11 · Footprint roll-up (structural gate)
+
+**Notes:** CRITICAL: always validate against the actual building structural drawings — slab type / slab thickness / column-spacing all interact.
+
+### Seismic design category
+
+**Value:** A-F per IBC 2018 / regional equivalents
+
+**Source:** IBC 2018; regional codes (KS in KR, GB/T in CN, SNI in ID, UBBL in MY)
+
+**Reference:** International Building Code 2018 §1613; SPEC regional profiles encode a default per region (KR=D, TW=D, VN=C, MY=B, SG=A, ID=D).
+
+**Used by:** Step 4.6 · Seismic mass
+
+**Notes:** Site-specific PGA can shift the category by one bucket; engagement override critical.
+
+### T11 pallet (1100×1100)
+
+**Value:** ISO 6780 Size 3 — 1100 × 1100 × 150 mm, max 1500 kg
+
+**Source:** ISO 6780 (Flat pallets for intercontinental materials handling)
+
+**Reference:** ISO 6780:2003. T11 is the dominant Asian pallet — JIS Z 0601 in JP, KS in KR.
+
+**URL:** <https://www.iso.org/standard/35988.html>
+
+**Used by:** Step 3 · Slot sizing · Step 4 · Bays · Step 9 · Docks
+
+### Ramadan productivity derate
+
+**Value:** 30 days × 0.82× FTE rate (annual blanket)
+
+**Source:** SPEC §6.2 (synthesised from prior MY/ID engagements)
+
+**Reference:** No published academic source — derived from ~6 SCConnect MY/ID engagement audits, 2018-2023. Phase 10.4 will generalise into a learning-curve.
+
+**Used by:** Step 7 · Labour
+
+**Notes:** Conservative estimate; some operations report 0.75× during the last week of Ramadan; the blanket smooths the daily variation.
+
+### Peak uplift CV factor
+
+**Value:** peak = avg × (1 + peakUpliftFactor × CV)
+
+**Source:** SPEC §6.3 heuristic
+
+**Reference:** Synthesised from ~12 engagements 2019-2024. peakUpliftFactor ≈ 1.5 covers the 90th percentile day.
+
+**Used by:** Step 6 · Throughput
+
+**Notes:** Engagement override expected — strict-SLA operations (e.g. medical, electronics) push this to 2.0+.
+
+### DSOH per channel × velocity
+
+**Value:** A-class B2B: 7-14 d · A-class ecom: 5-10 d · C-class: 30-60 d
+
+**Source:** SPEC §6.2 regional defaults
+
+**Reference:** Region-tuned defaults per channel × velocity class. Engagement override expected.
+
+**Used by:** Step 3 · Slot sizing
+
+**Notes:** Highly engagement-specific — every client has its own DSOH policy.
+
+### Container packing — 40HC pal/floor
+
+**Value:** 20-22 T11 pallets per 40HC (single-row, floor-stack)
+
+**Source:** Industry packing tables
+
+**Reference:** Standard 40HC dimensions 12.03 × 2.35 × 2.69 m (internal); T11 1100×1100 floor-stack pattern. SPEC default 21.
+
+**Used by:** Step 9 · Dock schedule
+
+**Notes:** Cube-cap (volume) often binds before floor-stack count for low-density goods.
+
+### Office area per FTE
+
+**Value:** 1 m² per FTE (operational support office)
+
+**Source:** SPEC §6.2 regional defaults
+
+**Reference:** KR/SG: 0.7-1.0 m²/FTE (denser); MY/ID/VN: 1.0-1.5 m²/FTE. SPEC default 1.0 m²/FTE.
+
+**Used by:** Step 10 · Support areas
+
+**Notes:** Excludes exec / meeting / break spaces — those are bundled into a separate amenities allowance.
+
+<!-- END GENERATED:citations -->
 
 ---
 
