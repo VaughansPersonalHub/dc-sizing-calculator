@@ -7,13 +7,24 @@
 // extend the same scale.
 //
 // Layout is composed of independent <g> layers, each gated by a flag in
-// useLayoutViewStore.visibleLayers — flow / fire-egress / pedestrian arrive
-// in Chunk 2, exports + selection panel in Chunks 2/3.
+// useLayoutViewStore.visibleLayers. Layers in render order:
+//   grid → envelope → fire egress → zones (with aisles) → docks
+//   → flow arrows → pedestrian → compass / scale.
+// Flow / fire-egress / pedestrian arrived in Chunk 2; selection panel is
+// driven by useLayoutViewStore.selectedZoneId.
 
 import { useMemo } from 'react';
 import { scaleLinear } from 'd3-scale';
-import type { LayoutResult, PlacedRect, LayoutZoneRole, ZoneAisleHint } from './types';
+import type {
+  LayoutResult,
+  PlacedRect,
+  PlacedDoor,
+  LayoutZoneRole,
+  ZoneAisleHint,
+} from './types';
 import { useLayoutViewStore } from '../../stores/layout-view.store';
+import { buildFlowPaths } from './flow';
+import { computeEgressGrid } from './egress';
 
 interface Props {
   layout: LayoutResult;
@@ -36,9 +47,15 @@ const ROLE_FILL: Record<LayoutZoneRole, string> = {
 };
 
 const ROLE_OPACITY = 0.78;
+const SELECTED_STROKE = '#fde68a';
+const FLOW_INBOUND_COLOUR = '#0ea5e9';
+const FLOW_OUTBOUND_COLOUR = '#f97316';
 
 export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
   const visibleLayers = useLayoutViewStore((s) => s.visibleLayers);
+  const flowPattern = useLayoutViewStore((s) => s.flowPattern);
+  const selectedZoneId = useLayoutViewStore((s) => s.selectedZoneId);
+  const setSelectedZone = useLayoutViewStore((s) => s.setSelectedZone);
 
   const { sx, sy, viewWidth, viewHeight } = useMemo(() => {
     const padding = 32;
@@ -59,6 +76,16 @@ export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
     };
   }, [layout.envelopeLengthM, layout.envelopeWidthM, pixelWidth]);
 
+  const flowPaths = useMemo(
+    () => (visibleLayers.flow ? buildFlowPaths({ layout, pattern: flowPattern }) : []),
+    [layout, flowPattern, visibleLayers.flow]
+  );
+
+  const egressGrid = useMemo(
+    () => (visibleLayers.fire_egress ? computeEgressGrid({ layout }) : null),
+    [layout, visibleLayers.fire_egress]
+  );
+
   const roleVisible = (role: LayoutZoneRole, overflow: boolean): boolean => {
     if (overflow) return true; // always show overflow rects so users see the issue
     if (role.startsWith('storage_')) return visibleLayers.storage;
@@ -71,11 +98,44 @@ export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
   };
 
   return (
-    <svg width={viewWidth} height={viewHeight} className="block bg-slate-50 dark:bg-slate-950 rounded-md">
+    <svg
+      width={viewWidth}
+      height={viewHeight}
+      className="block bg-slate-50 dark:bg-slate-950 rounded-md"
+      onClick={(e) => {
+        // Click on empty SVG background → deselect.
+        if (e.target === e.currentTarget) setSelectedZone(null);
+      }}
+    >
       <defs>
         <pattern id="overflow-hatch" patternUnits="userSpaceOnUse" width={8} height={8}>
           <path d="M 0,8 L 8,0" stroke="#dc2626" strokeWidth={1.4} />
         </pattern>
+        <pattern id="egress-hatch" patternUnits="userSpaceOnUse" width={6} height={6}>
+          <path d="M 0,6 L 6,0" stroke="#dc2626" strokeOpacity={0.55} strokeWidth={1} />
+        </pattern>
+        <marker
+          id="flow-arrow-in"
+          viewBox="0 0 10 10"
+          refX={9}
+          refY={5}
+          markerWidth={7}
+          markerHeight={7}
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={FLOW_INBOUND_COLOUR} />
+        </marker>
+        <marker
+          id="flow-arrow-out"
+          viewBox="0 0 10 10"
+          refX={9}
+          refY={5}
+          markerWidth={7}
+          markerHeight={7}
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={FLOW_OUTBOUND_COLOUR} />
+        </marker>
       </defs>
 
       {visibleLayers.grid && (
@@ -91,10 +151,38 @@ export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
 
       <EnvelopeOutline layout={layout} sx={sx} sy={sy} />
 
+      {egressGrid && egressGrid.failingCells.length > 0 && (
+        <g style={{ pointerEvents: 'none' }}>
+          {egressGrid.failingCells.map((c, i) => (
+            <rect
+              key={`egress-${i}`}
+              x={sx(c.x)}
+              y={sy(c.y + c.depthM)}
+              width={sx(c.x + c.widthM) - sx(c.x)}
+              height={sy(c.y) - sy(c.y + c.depthM)}
+              fill="url(#egress-hatch)"
+              opacity={0.85}
+            >
+              <title>{`> ${egressGrid.maxDistanceM} m to nearest exit (${c.distanceM.toFixed(0)} m)`}</title>
+            </rect>
+          ))}
+        </g>
+      )}
+
       {/* Zone rectangles + per-zone aisles */}
       {layout.rects.map((r) => {
         if (!roleVisible(r.role, r.overflow)) return null;
-        return <RectShape key={r.id} rect={r} sx={sx} sy={sy} showLabel={visibleLayers.labels} />;
+        return (
+          <RectShape
+            key={r.id}
+            rect={r}
+            sx={sx}
+            sy={sy}
+            showLabel={visibleLayers.labels}
+            selected={selectedZoneId === r.id}
+            onSelect={() => setSelectedZone(r.id)}
+          />
+        );
       })}
 
       {/* Dock doors */}
@@ -109,6 +197,27 @@ export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
             sy={sy}
           />
         ))}
+
+      {/* Flow arrows */}
+      {visibleLayers.flow && flowPaths.length > 0 && (
+        <g style={{ pointerEvents: 'none' }}>
+          {flowPaths.map((p) => (
+            <polyline
+              key={p.id}
+              points={p.points.map((pt) => `${sx(pt.x)},${sy(pt.y)}`).join(' ')}
+              fill="none"
+              stroke={p.direction === 'inbound' ? FLOW_INBOUND_COLOUR : FLOW_OUTBOUND_COLOUR}
+              strokeWidth={2.5}
+              strokeOpacity={0.85}
+              markerEnd={`url(#flow-arrow-${p.direction === 'inbound' ? 'in' : 'out'})`}
+            />
+          ))}
+        </g>
+      )}
+
+      {/* Pedestrian walkway: dashed green strip along the
+          dock-strip / storage interface — the main cross-traffic seam. */}
+      {visibleLayers.pedestrian && <PedestrianLayer layout={layout} sx={sx} sy={sy} />}
 
       {/* Compass + scale bar */}
       {visibleLayers.north && <CompassRose x={viewWidth - 48} y={48} />}
@@ -145,7 +254,7 @@ function GridLayer({
   const horizontals: number[] = [];
   for (let y = spacingYM; y < envelopeWidthM; y += spacingYM) horizontals.push(y);
   return (
-    <g className="text-slate-300 dark:text-slate-700" opacity={0.55}>
+    <g className="text-slate-300 dark:text-slate-700" opacity={0.55} style={{ pointerEvents: 'none' }}>
       {verticals.map((x) => (
         <line
           key={`gv-${x}`}
@@ -216,13 +325,13 @@ function DockDoor({
   sx,
   sy,
 }: {
-  door: { wall: 'north' | 'south' | 'east' | 'west'; position: number; widthM: number; direction: 'inbound' | 'outbound'; id: string };
+  door: PlacedDoor;
   envelopeLengthM: number;
   envelopeWidthM: number;
   sx: (n: number) => number;
   sy: (n: number) => number;
 }) {
-  const colour = door.direction === 'inbound' ? '#0ea5e9' : '#f97316';
+  const colour = door.direction === 'inbound' ? FLOW_INBOUND_COLOUR : FLOW_OUTBOUND_COLOUR;
   const thickness = 6;
   let x: number;
   let y: number;
@@ -261,11 +370,15 @@ function RectShape({
   sx,
   sy,
   showLabel,
+  selected,
+  onSelect,
 }: {
   rect: PlacedRect;
   sx: (n: number) => number;
   sy: (n: number) => number;
   showLabel: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const xPx = sx(rect.x);
   const yPx = sy(rect.y + rect.depthM);
@@ -274,7 +387,13 @@ function RectShape({
   if (wPx <= 0 || hPx <= 0) return null;
   const fill = rect.overflow ? 'url(#overflow-hatch)' : ROLE_FILL[rect.role];
   return (
-    <g>
+    <g
+      style={{ cursor: 'pointer' }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+    >
       <rect
         x={xPx}
         y={yPx}
@@ -282,8 +401,8 @@ function RectShape({
         height={hPx}
         fill={fill}
         fillOpacity={rect.overflow ? 1 : ROLE_OPACITY}
-        stroke={rect.overflow ? '#7f1d1d' : 'rgba(15,23,42,0.4)'}
-        strokeWidth={rect.overflow ? 1.5 : 0.5}
+        stroke={selected ? SELECTED_STROKE : rect.overflow ? '#7f1d1d' : 'rgba(15,23,42,0.4)'}
+        strokeWidth={selected ? 2.5 : rect.overflow ? 1.5 : 0.5}
       >
         <title>{`${rect.label} · ${(rect.widthM * rect.depthM).toFixed(0)} m²`}</title>
       </rect>
@@ -318,9 +437,6 @@ function ZoneAisles({
   sy: (n: number) => number;
 }) {
   if (hint.count <= 0) return null;
-  // matches_flow → aisles run with the dock-face flow → north-south
-  // (vertical lines on the diagram, evenly spaced along the zone's width).
-  // perpendicular_to_flow → horizontal lines, evenly spaced along the depth.
   const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
   if (hint.orientation === 'matches_flow') {
     const step = rect.widthM / (hint.count + 1);
@@ -336,7 +452,7 @@ function ZoneAisles({
     }
   }
   return (
-    <g opacity={0.45}>
+    <g opacity={0.45} style={{ pointerEvents: 'none' }}>
       {lines.map((l, i) => (
         <line
           key={i}
@@ -347,9 +463,39 @@ function ZoneAisles({
           stroke="rgba(255,255,255,0.85)"
           strokeWidth={0.6}
           strokeDasharray="2 2"
-          style={{ pointerEvents: 'none' }}
         />
       ))}
+    </g>
+  );
+}
+
+function PedestrianLayer({
+  layout,
+  sx,
+  sy,
+}: {
+  layout: LayoutResult;
+  sx: (n: number) => number;
+  sy: (n: number) => number;
+}) {
+  // Pedestrian aisle = a dashed green polyline along the dock-strip / storage
+  // interface. We approximate it as the south edge of the storage region:
+  // it's the seam where staff cross between staging and storage on foot.
+  const staging = layout.rects.find((r) => r.role === 'staging');
+  if (!staging) return null;
+  const yLine = staging.y + staging.depthM;
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <line
+        x1={sx(0)}
+        y1={sy(yLine)}
+        x2={sx(layout.envelopeLengthM)}
+        y2={sy(yLine)}
+        stroke="#16a34a"
+        strokeWidth={1.5}
+        strokeDasharray="6 3"
+        opacity={0.75}
+      />
     </g>
   );
 }

@@ -2,7 +2,12 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useLayoutResult } from '../layout-renderer/useLayoutResult';
 import { LayoutSvg } from '../layout-renderer/LayoutSvg';
-import { useLayoutViewStore, type LayerId } from '../../stores/layout-view.store';
+import { SelectionPanel } from '../layout-renderer/SelectionPanel';
+import {
+  useLayoutViewStore,
+  type LayerId,
+  type FlowPattern,
+} from '../../stores/layout-view.store';
 import { cn } from '../../utils/cn';
 
 const LAYERS: { id: LayerId; label: string }[] = [
@@ -19,10 +24,19 @@ const LAYERS: { id: LayerId; label: string }[] = [
   { id: 'north', label: 'Compass' },
 ];
 
+const FLOW_PATTERNS: { id: FlowPattern; label: string }[] = [
+  { id: 'I_flow', label: 'I-flow (straight through)' },
+  { id: 'U_flow', label: 'U-flow (same wall)' },
+  { id: 'L_flow', label: 'L-flow (adjacent walls)' },
+  { id: 'custom', label: 'Custom' },
+];
+
 export function LayoutTab() {
   const { layout, buildingTemplate } = useLayoutResult();
   const visibleLayers = useLayoutViewStore((s) => s.visibleLayers);
   const toggleLayer = useLayoutViewStore((s) => s.toggleLayer);
+  const flowPattern = useLayoutViewStore((s) => s.flowPattern);
+  const setFlowPattern = useLayoutViewStore((s) => s.setFlowPattern);
 
   return (
     <div className="p-6 max-w-6xl">
@@ -33,11 +47,11 @@ export function LayoutTab() {
         </span>
       </div>
       <p className="text-sm text-muted-foreground mb-5">
-        Block diagram of the engine result. Storage zones from Step 5
-        (with per-zone aisle orientation), dock placements from Step 9, and
-        the support cluster from Step 10 packed against the building
-        envelope. Polygon envelopes are clipped against the building
-        outline.
+        Block diagram of the engine result. Storage zones from Step 5 (with
+        per-zone aisle orientation), dock placements from Step 9, support
+        cluster from Step 10, all packed against the building envelope
+        (polygon-clipped when supplied). Click any zone for details; toggle
+        layers and flow patterns from the side panel.
       </p>
 
       {!layout && (
@@ -55,41 +69,64 @@ export function LayoutTab() {
           <FitBanner overflowed={layout.overflowed} overflowAreaM2={layout.overflowAreaM2} />
 
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-4">
-            {/* Layer toggles */}
-            <div className="rounded-md border border-border bg-card p-3 w-44">
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Layers
-              </h3>
-              <ul className="space-y-1.5 text-xs">
-                {LAYERS.map((l) => (
-                  <li key={l.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id={`layer-${l.id}`}
-                      checked={visibleLayers[l.id]}
-                      onChange={() => toggleLayer(l.id)}
-                      className="h-3 w-3"
-                    />
-                    <label htmlFor={`layer-${l.id}`} className="select-none">
-                      {l.label}
-                    </label>
-                  </li>
-                ))}
-              </ul>
+            {/* Sidebar: layers / flow / stats / selection */}
+            <div className="w-52 space-y-3">
+              <div className="rounded-md border border-border bg-card p-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                  Layers
+                </h3>
+                <ul className="space-y-1.5 text-xs">
+                  {LAYERS.map((l) => (
+                    <li key={l.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`layer-${l.id}`}
+                        checked={visibleLayers[l.id]}
+                        onChange={() => toggleLayer(l.id)}
+                        className="h-3 w-3"
+                      />
+                      <label htmlFor={`layer-${l.id}`} className="select-none">
+                        {l.label}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-4 mb-2">
-                Stats
-              </h3>
-              <ul className="space-y-1 text-xs">
-                <Stat label="Envelope" v={`${layout.envelopeLengthM} × ${layout.envelopeWidthM} m`} />
-                <Stat label="Polygon" v={layout.polygon ? `${layout.polygon.length} vtx` : 'rect'} />
-                <Stat label="Zones placed" v={layout.rects.filter((r) => !r.overflow).length} />
-                <Stat label="Doors" v={layout.doors.length} />
-                <Stat label="Solver" v={`${layout.elapsedMs.toFixed(1)} ms`} />
-                {layout.overflowed && (
-                  <Stat label="Overflow" v={`${layout.overflowAreaM2.toFixed(0)} m²`} />
-                )}
-              </ul>
+              <div className="rounded-md border border-border bg-card p-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                  Flow pattern
+                </h3>
+                <select
+                  value={flowPattern}
+                  onChange={(e) => setFlowPattern(e.target.value as FlowPattern)}
+                  className="w-full text-xs rounded-sm border border-border bg-background px-2 py-1"
+                >
+                  {FLOW_PATTERNS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-md border border-border bg-card p-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                  Stats
+                </h3>
+                <ul className="space-y-1 text-xs">
+                  <Stat label="Envelope" v={`${layout.envelopeLengthM} × ${layout.envelopeWidthM} m`} />
+                  <Stat label="Polygon" v={layout.polygon ? `${layout.polygon.length} vtx` : 'rect'} />
+                  <Stat label="Zones placed" v={layout.rects.filter((r) => !r.overflow).length} />
+                  <Stat label="Doors" v={layout.doors.length} />
+                  <Stat label="Solver" v={`${layout.elapsedMs.toFixed(1)} ms`} />
+                  {layout.overflowed && (
+                    <Stat label="Overflow" v={`${layout.overflowAreaM2.toFixed(0)} m²`} />
+                  )}
+                </ul>
+              </div>
+
+              <SelectionPanel layout={layout} />
             </div>
 
             {/* Diagram */}
