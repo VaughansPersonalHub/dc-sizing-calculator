@@ -15,7 +15,9 @@ import {
 import { Tooltip } from '../components/Tooltip';
 import { InfoTip } from '../components/InfoTip';
 import { StepExplainerCard } from '../components/StepExplainer';
+import { BenchmarkChip } from '../components/BenchmarkChip';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
+import { BENCHMARKS, type BenchmarkInput } from '../help/benchmarks';
 import { cn } from '../../utils/cn';
 
 export function ScenariosTab() {
@@ -435,48 +437,48 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Card title="Validation" explainerId="step-0-validation">
+        <Card title="Validation" explainerId="step-0-validation" result={result}>
           <Stat label="Total SKUs" v={result.validation.stats.totalSkus} />
           <Stat label="Clean" v={result.validation.stats.cleanSkus} />
           <Stat label="Warnings" v={result.validation.stats.warningSkus} />
           <Stat label="Fatal" v={result.validation.stats.fatalSkus} />
         </Card>
 
-        <Card title="Throughput" explainerId="step-6-throughput">
+        <Card title="Throughput" explainerId="step-6-throughput" result={result}>
           <Stat label="Daily inbound pallets" v={result.step6.daily.inboundPallets.toFixed(1)} />
           <Stat label="Daily outbound pallets" v={result.step6.daily.outboundPallets.toFixed(1)} />
           <Stat label="Daily pick lines" v={result.step6.daily.pickLinesPerDay.toFixed(0)} />
           <Stat label="Peak pick lines" v={result.step6.peak.pickLinesPerDay.toFixed(0)} />
         </Card>
 
-        <Card title="Slot sizing" explainerId="step-3-slot-sizing">
+        <Card title="Slot sizing" explainerId="step-3-slot-sizing" result={result}>
           <Stat label="PFP positions" v={result.step3.totals.pfpPositions} />
           <Stat label="CLS lanes" v={result.step3.totals.clsLanes} />
           <Stat label="Shelf S/M/L" v={`${result.step3.totals.shelfPositionsSmall}/${result.step3.totals.shelfPositionsMedium}/${result.step3.totals.shelfPositionsLarge}`} />
           <Stat label="Repack SKUs" v={result.step3.totals.repackSkus} />
         </Card>
 
-        <Card title="Footprint" explainerId="step-5-footprint">
+        <Card title="Footprint" explainerId="step-5-footprint" result={result}>
           <Stat label="Total aligned m²" v={Math.round(result.step5.totalAlignedAreaM2).toLocaleString()} />
           <Stat label="Grid efficiency" v={(result.step5.averageGridEfficiency * 100).toFixed(0) + '%'} />
           <Stat label="Zones" v={result.step5.zones.length} />
         </Card>
 
-        <Card title="Step 4.5 · Clear height" explainerId="step-4-5-clear-height">
+        <Card title="Step 4.5 · Clear height" explainerId="step-4-5-clear-height" result={result}>
           <Stat label="Status" v={result.step4_5.ok ? '✓ ok' : '✗ shortfall'} />
           <Stat label="Required rack" v={`${(result.step4_5.requiredRackHeightMm / 1000).toFixed(2)} m`} />
           <Stat label="Usable rack" v={`${(result.step4_5.usableRackHeightMm / 1000).toFixed(2)} m`} />
           {!result.step4_5.ok && <Stat label="Shortfall levels" v={result.step4_5.shortfallLevels} />}
         </Card>
 
-        <Card title="Step 4.6 · Seismic mass" explainerId="step-4-6-seismic">
+        <Card title="Step 4.6 · Seismic mass" explainerId="step-4-6-seismic" result={result}>
           <Stat label="Status" v={result.step4_6.ok ? '✓ ok' : '✗ exceeds'} />
           <Stat label="Seismic mass" v={`${result.step4_6.seismicMassT.toFixed(0)} t`} />
           <Stat label="Allowable" v={`${result.step4_6.allowableMassT.toFixed(0)} t`} />
           {!result.step4_6.ok && <Stat label="Remediation" v={result.step4_6.remediation} />}
         </Card>
 
-        <Card title="Step 7 · Labour" explainerId="step-7-labour">
+        <Card title="Step 7 · Labour" explainerId="step-7-labour" result={result}>
           <Stat label="Base FTE" v={result.step7.totalBaseFte.toFixed(1)} />
           <Stat label="Peak FTE" v={result.step7.totalPeakFte.toFixed(1)} />
           <Stat label="Availability" v={(result.step7.availability * 100).toFixed(0) + '%'} />
@@ -488,7 +490,7 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
           )}
         </Card>
 
-        <Card title="Step 8 · MHE Fleet" explainerId="step-8-mhe">
+        <Card title="Step 8 · MHE Fleet" explainerId="step-8-mhe" result={result}>
           <Stat label="Total units" v={result.step8.totalUnits} />
           <Stat label="Charging area" v={`${result.step8.totalChargingFootprintM2.toFixed(0)} m²`} />
           <Stat label="Charging kVA" v={result.step8.totalChargingKva.toFixed(0)} />
@@ -497,7 +499,7 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
           ))}
         </Card>
 
-        <Card title="Step 9 · Docks" explainerId="step-9-docks">
+        <Card title="Step 9 · Docks" explainerId="step-9-docks" result={result}>
           <Stat label="Inbound doors" v={result.step9.inbound.doorsRequired} />
           <Stat label="Outbound doors" v={result.step9.outbound.doorsRequired} />
           <Stat label="Total" v={result.step9.totalDoors} />
@@ -505,7 +507,7 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
           <Stat label="Staging area" v={`${result.step9.staging.totalM2.toFixed(0)} m²`} />
         </Card>
 
-        <Card title="Step 10 · Support areas" explainerId="step-10-support">
+        <Card title="Step 10 · Support areas" explainerId="step-10-support" result={result}>
           <Stat label="Operational support" v={`${result.step10.operationalSupportM2.toFixed(0)} m²`} />
           <Stat label="Office + amenities" v={`${result.step10.officeAndAmenitiesM2.toFixed(0)} m²`} />
           {result.step10.areas.surau > 0 && (
@@ -519,7 +521,7 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
           )}
         </Card>
 
-        <Card title="Step 11 · Footprint roll-up" explainerId="step-11-rollup">
+        <Card title="Step 11 · Footprint roll-up" explainerId="step-11-rollup" result={result}>
           <Stat label="Operational" v={`${result.step11.rollup.operationalM2.toFixed(0)} m²`} />
           <Stat label="GFA (building)" v={`${result.step11.rollup.buildingFootprintGfaM2.toFixed(0)} m²`} />
           <Stat label="Canopy" v={`${result.step11.rollup.canopyAreaM2.toFixed(0)} m² ${result.step11.rollup.canopyCountedInCoverage ? '(counted)' : '(exempt)'}`} />
@@ -531,7 +533,7 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
         </Card>
 
         {result.step12 && (
-          <Card title="Step 12 · Automation override" explainerId="step-12-automation">
+          <Card title="Step 12 · Automation override" explainerId="step-12-automation" result={result}>
             <Stat label="System" v={result.step12.systemId} />
             <Stat label="Category" v={result.step12.category} />
             <Stat label="Robots" v={result.step12.robotCount} />
@@ -559,21 +561,38 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
 function Card({
   title,
   explainerId,
+  result,
   children,
 }: {
   title: string;
   explainerId?: string;
+  /** Engine result — when supplied, BenchmarkChips matched on explainerId render under the stat list. */
+  result?: EngineResultShape;
   children: React.ReactNode;
 }) {
   const explainer = explainerId
     ? STEP_EXPLAINERS.find((s) => s.id === explainerId)
     : undefined;
+  const chips = explainerId && result
+    ? BENCHMARKS.filter((b) => b.stepExplainerId === explainerId).map((b) => ({
+        benchmark: b,
+        value: b.valueFn(result as unknown as BenchmarkInput),
+      }))
+    : [];
+  const visibleChips = chips.filter((c) => c.value !== null);
   return (
     <div className="rounded-md border border-border bg-card p-4">
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
         {title}
       </h3>
       <ul className="space-y-1 text-xs">{children}</ul>
+      {visibleChips.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1">
+          {visibleChips.map(({ benchmark, value }) => (
+            <BenchmarkChip key={benchmark.id} benchmark={benchmark} value={value} side="bottom" />
+          ))}
+        </div>
+      )}
       {explainer && (
         <div className="mt-3">
           <StepExplainerCard data={explainer} />
