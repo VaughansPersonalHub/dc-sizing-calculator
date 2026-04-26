@@ -27,6 +27,7 @@ import {
   importSccSnapshot,
 } from '../../exports/scc-snapshot';
 import { triggerDownload, fileBaseFromName } from '../../exports/download';
+import { Tooltip } from '../components/Tooltip';
 import { cn } from '../../utils/cn';
 
 export function OutputsTab() {
@@ -185,6 +186,7 @@ export function OutputsTab() {
           phase="Chunk 1"
           disabled={!lastResult || scheduleBuilding}
           buttonLabel={scheduleBuilding ? 'Building…' : 'Download'}
+          buttonTooltip="9-sheet .xlsx workbook (~50-100 KB). Opens in Excel, Google Sheets, or Numbers. Each sheet is independently editable. SheetJS is dynamic-imported on click — first download takes ~1 s extra."
           onClick={() => {
             void downloadSchedule();
           }}
@@ -196,6 +198,7 @@ export function OutputsTab() {
           description="Flat dump of every ops-profile knob — productivity, peak uplift, DSOH per bucket, soft space, regional defaults, tornado weights — for spreadsheet review."
           phase="Chunk 1"
           disabled={!activeEngagementId}
+          buttonTooltip="Flat .csv (UTF-8, quoted fields). One row per knob. Re-importable to any spreadsheet for cross-engagement comparison or sign-off review."
           onClick={() => {
             void downloadAssumptions();
           }}
@@ -208,6 +211,7 @@ export function OutputsTab() {
           phase="Chunk 2"
           disabled={!lastResult || pdfBuilding}
           buttonLabel={pdfBuilding ? 'Building…' : 'Download'}
+          buttonTooltip="A4 portrait, 4 pages (cover + key metrics + schedule + tornado top-10 if you ran it). Vector text and shapes — react-pdf is lazy-loaded, ~1.5 MB, ~2 s on first download."
           onClick={() => {
             void downloadPdf();
           }}
@@ -220,6 +224,7 @@ export function OutputsTab() {
           phase="Chunk 3"
           disabled={!lastTornado || pptBuilding}
           buttonLabel={pptBuilding ? 'Building…' : 'Download'}
+          buttonTooltip="16:9 widescreen, 3 slides. Native PowerPoint chart — editable in PPT (recolour, re-rank, change axis). pptxgenjs is lazy-loaded, ~370 KB."
           onClick={() => {
             void downloadPpt();
           }}
@@ -231,6 +236,7 @@ export function OutputsTab() {
           description="Compressed engagement archive (gzipped JSON envelope, schema v2). Round-trips into any SCConnect DC Sizing instance — same format R2 uses internally."
           phase="Chunk 3"
           disabled={!activeEngagementId}
+          buttonTooltip="Gzipped JSON. Typical 10-200 KB depending on SKU count. Use to migrate engagements between tenants, send a frozen copy to a client, or branch a what-if without touching the live engagement."
           onClick={() => {
             void downloadScc();
           }}
@@ -264,6 +270,7 @@ function ExportCard({
   disabled,
   onClick,
   buttonLabel,
+  buttonTooltip,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -272,7 +279,22 @@ function ExportCard({
   disabled: boolean;
   onClick: () => void;
   buttonLabel?: string;
+  buttonTooltip?: string;
 }) {
+  const button = (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border border-border',
+        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
+      )}
+    >
+      {buttonLabel ?? 'Download'}
+    </button>
+  );
+
   return (
     <div className="rounded-md border border-border bg-card p-4">
       <div className="flex items-center gap-2 mb-1">
@@ -283,17 +305,13 @@ function ExportCard({
         </span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">{description}</p>
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className={cn(
-          'inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border border-border',
-          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
-        )}
-      >
-        {buttonLabel ?? 'Download'}
-      </button>
+      {buttonTooltip ? (
+        <Tooltip content={buttonTooltip} side="top">
+          {button}
+        </Tooltip>
+      ) : (
+        button
+      )}
     </div>
   );
 }

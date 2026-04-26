@@ -12,6 +12,7 @@ import {
 } from '../../ingestion';
 import { cn } from '../../utils/cn';
 import { DataQualityDashboard } from '../components/inputs/DataQualityDashboard';
+import { Tooltip } from '../components/Tooltip';
 
 export function InputsTab() {
   const activeEngagementId = useEngagementStore((s) => s.activeEngagementId);
@@ -98,14 +99,19 @@ export function InputsTab() {
         <FileSpreadsheet className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
         <p className="text-sm mb-3">
           Drop a <strong>.csv</strong> here, or{' '}
-          <button
-            type="button"
-            onClick={onPickFile}
-            disabled={!activeEngagementId || running}
-            className="underline text-scc-gold hover:opacity-80 disabled:opacity-40 disabled:no-underline"
+          <Tooltip
+            content="Open a CSV. Replace semantics — the new file supersedes any previously imported SKUs for this engagement. PapaParse streams the file in 1 MiB chunks; 20 000 rows ingest in ~500 ms."
+            side="top"
           >
-            choose a file
-          </button>
+            <button
+              type="button"
+              onClick={onPickFile}
+              disabled={!activeEngagementId || running}
+              className="underline text-scc-gold hover:opacity-80 disabled:opacity-40 disabled:no-underline"
+            >
+              choose a file
+            </button>
+          </Tooltip>
           .
         </p>
         <p className="text-[11px] text-muted-foreground max-w-xl mx-auto">
@@ -193,14 +199,19 @@ export function InputsTab() {
           <span>· last imported {new Date(lastImportAt).toLocaleTimeString()}</span>
         )}
         <div className="flex-1" />
-        <button
-          type="button"
-          onClick={onClear}
-          disabled={!activeEngagementId || skuCount === 0 || running}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-accent disabled:opacity-40"
+        <Tooltip
+          content="Removes every SKU scoped to this engagement from Dexie. Cannot be undone — re-import the CSV to restore. The ops profile and reference libraries are not affected."
+          side="top"
         >
-          Clear all SKUs
-        </button>
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={!activeEngagementId || skuCount === 0 || running}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-accent disabled:opacity-40"
+          >
+            Clear all SKUs
+          </button>
+        </Tooltip>
       </div>
 
       <DataQualityDashboard />

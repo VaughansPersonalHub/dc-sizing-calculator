@@ -23,6 +23,8 @@ import {
 import type { ValidationSummary } from '../../../stores/engine.store';
 import { db } from '../../../db/schema';
 import { cn } from '../../../utils/cn';
+import { Tooltip } from '../Tooltip';
+import { InfoTip } from '../InfoTip';
 
 interface FixToggles {
   clampNegativeDemand: boolean;
@@ -134,15 +136,20 @@ export function DataQualityDashboard() {
           Phase 2.5 · Step 0 ValidationLayer
         </span>
         <div className="flex-1" />
-        <button
-          type="button"
-          onClick={runValidation}
-          disabled={running}
-          className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded hover:bg-accent disabled:opacity-40"
+        <Tooltip
+          content="Re-runs Step 0 ValidationLayer over the current SKU set in Dexie. Useful after editing SKUs in the Reference tab or fixing data outside the app."
+          side="left"
         >
-          <RefreshCw className={cn('h-3 w-3', running && 'animate-spin')} />
-          Re-run
-        </button>
+          <button
+            type="button"
+            onClick={runValidation}
+            disabled={running}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded hover:bg-accent disabled:opacity-40"
+          >
+            <RefreshCw className={cn('h-3 w-3', running && 'animate-spin')} />
+            Re-run
+          </button>
+        </Tooltip>
       </div>
 
       {error && (
@@ -192,14 +199,19 @@ export function DataQualityDashboard() {
               </div>
             </div>
             {!acknowledged && (
-              <button
-                type="button"
-                onClick={acknowledge}
-                disabled={validation.fatalErrors.length > 0}
-                className="ml-3 px-3 py-1.5 rounded-md text-[11px] bg-scc-charcoal text-scc-gold disabled:opacity-40"
+              <Tooltip
+                content="Locks the Step 0 result hash to the current SKU set + halal flag. The engine refuses to run until acknowledged. Re-imports or auto-fix applications drop the lock."
+                side="left"
               >
-                Acknowledge
-              </button>
+                <button
+                  type="button"
+                  onClick={acknowledge}
+                  disabled={validation.fatalErrors.length > 0}
+                  className="ml-3 px-3 py-1.5 rounded-md text-[11px] bg-scc-charcoal text-scc-gold disabled:opacity-40"
+                >
+                  Acknowledge
+                </button>
+              </Tooltip>
             )}
           </div>
 
@@ -237,41 +249,50 @@ export function DataQualityDashboard() {
                 <FixToggle
                   label="Clamp negative weekly demand to zero"
                   hint={`${countByCode(validation, 'NEGATIVE_DEMAND')} SKUs affected`}
+                  tooltip="Replaces negative weekly demand points with 0. Common cause: returns net-out errors in the source WMS, or extract-time arithmetic on shipped-vs-returned units."
                   checked={toggles.clampNegativeDemand}
                   onChange={(v) => setToggles((t) => ({ ...t, clampNegativeDemand: v }))}
                 />
                 <FixToggle
                   label="Suppress zero-demand SKUs"
                   hint={`${countByCode(validation, 'ZERO_DEMAND')} SKUs would be dropped`}
+                  tooltip="Skips SKUs with all-zero 52-week demand from engine sizing. They still appear in the SKU master and counts; the engine just won't allocate space or labour for them."
                   checked={toggles.suppressZeroDemand}
                   onChange={(v) => setToggles((t) => ({ ...t, suppressZeroDemand: v }))}
                 />
                 <FixToggle
                   label="Cap CV outliers at 3.0 (winsorise)"
                   hint={`${countByCode(validation, 'CV_OUTLIER')} SKUs above threshold`}
+                  tooltip="Winsorises the demand series so a single spike week (e.g. event launch, data error) doesn't blow out peak uplift. Soft cap — magnitude is preserved up to CV=3."
                   checked={toggles.capCv}
                   onChange={(v) => setToggles((t) => ({ ...t, capCv: v }))}
                 />
                 <FixToggle
                   label="Normalise channel mix to sum to 1.0"
                   hint={`${countByCode(validation, 'MISSING_CHANNEL_MIX')} SKUs need rescale`}
+                  tooltip="Rescales channelMix when the input sums to ~0.95-1.05 (rounding-error band). Hard mismatches (sum < 0.5 or > 1.5) still error — don't silently fix bad data."
                   checked={toggles.normaliseChannelMix}
                   onChange={(v) => setToggles((t) => ({ ...t, normaliseChannelMix: v }))}
                 />
               </div>
 
               <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={applyFixes}
-                  disabled={
-                    applying || !Object.values(toggles).some(Boolean) || running
-                  }
-                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-scc-charcoal text-scc-gold disabled:opacity-40"
+                <Tooltip
+                  content="Applies the checked fixes to the SKU set in Dexie via the repository (engine cache invalidates). Drops the acknowledgement lock; re-validates after."
+                  side="top"
                 >
-                  {applying ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  Apply selected fixes
-                </button>
+                  <button
+                    type="button"
+                    onClick={applyFixes}
+                    disabled={
+                      applying || !Object.values(toggles).some(Boolean) || running
+                    }
+                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-scc-charcoal text-scc-gold disabled:opacity-40"
+                  >
+                    {applying ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                    Apply selected fixes
+                  </button>
+                </Tooltip>
                 {lastFixSummary && (
                   <span className="text-[10px] text-muted-foreground">
                     Last apply: {lastFixSummary.before.toLocaleString()} → {lastFixSummary.after.toLocaleString()} SKUs
@@ -293,11 +314,13 @@ function countByCode(v: ValidationSummary, code: string): number {
 function FixToggle({
   label,
   hint,
+  tooltip,
   checked,
   onChange,
 }: {
   label: string;
   hint: string;
+  tooltip?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
@@ -310,7 +333,10 @@ function FixToggle({
         className="mt-0.5 accent-scc-gold"
       />
       <div className="flex-1 leading-tight">
-        <div>{label}</div>
+        <div className="flex items-center gap-1.5">
+          <span>{label}</span>
+          {tooltip && <InfoTip content={tooltip} side="top" label={`About: ${label}`} />}
+        </div>
         <div className="text-[10px] text-muted-foreground">{hint}</div>
       </div>
     </label>

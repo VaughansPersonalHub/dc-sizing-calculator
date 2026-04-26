@@ -12,27 +12,92 @@ import {
   type FlowPattern,
 } from '../../stores/layout-view.store';
 import { SHORTCUT_CLEAR_SELECTION_EVENT } from '../hooks/useKeyboardShortcuts';
+import { Tooltip } from '../components/Tooltip';
+import { InfoTip } from '../components/InfoTip';
 import { cn } from '../../utils/cn';
 
-const LAYERS: { id: LayerId; label: string }[] = [
-  { id: 'grid', label: 'Column grid' },
-  { id: 'storage', label: 'Storage zones' },
-  { id: 'staging', label: 'Staging' },
-  { id: 'docks', label: 'Docks' },
-  { id: 'support', label: 'Support / office' },
-  { id: 'flow', label: 'Flow arrows' },
-  { id: 'fire_egress', label: 'Fire egress' },
-  { id: 'pedestrian', label: 'Pedestrian' },
-  { id: 'labels', label: 'Labels' },
-  { id: 'scale', label: 'Scale bar' },
-  { id: 'north', label: 'Compass' },
+const LAYERS: { id: LayerId; label: string; tooltip: string }[] = [
+  {
+    id: 'grid',
+    label: 'Column grid',
+    tooltip: 'Structural column grid at 12-15 m centres. Reference for rack alignment.',
+  },
+  {
+    id: 'storage',
+    label: 'Storage zones',
+    tooltip: 'PFP / CLS / Shelf zones from Step 5 with per-zone aisle orientation.',
+  },
+  {
+    id: 'staging',
+    label: 'Staging',
+    tooltip: 'Cross-dock and QC/decant areas adjacent to docks (Step 9).',
+  },
+  {
+    id: 'docks',
+    label: 'Docks',
+    tooltip: 'Inbound (sky) and outbound (orange) dock doors from Step 9.',
+  },
+  {
+    id: 'support',
+    label: 'Support / office',
+    tooltip: 'Step 10 cluster — office, surau, customs, battery, antechamber, etc.',
+  },
+  {
+    id: 'flow',
+    label: 'Flow arrows',
+    tooltip: 'Material flow direction. Shape depends on the flow pattern (I / U / L / custom).',
+  },
+  {
+    id: 'fire_egress',
+    label: 'Fire egress',
+    tooltip: '5 m grid; cells more than 45 m from any egress point are hatched red.',
+  },
+  {
+    id: 'pedestrian',
+    label: 'Pedestrian',
+    tooltip: 'Walkways and pedestrian-only areas (out-of-MHE-zone routes).',
+  },
+  {
+    id: 'labels',
+    label: 'Labels',
+    tooltip: 'Zone names and dimensions on each rectangle.',
+  },
+  {
+    id: 'scale',
+    label: 'Scale bar',
+    tooltip: '10 m reference scale for printed exports.',
+  },
+  {
+    id: 'north',
+    label: 'Compass',
+    tooltip: 'North arrow at the top-right of the canvas.',
+  },
 ];
 
-const FLOW_PATTERNS: { id: FlowPattern; label: string }[] = [
-  { id: 'I_flow', label: 'I-flow (straight through)' },
-  { id: 'U_flow', label: 'U-flow (same wall)' },
-  { id: 'L_flow', label: 'L-flow (adjacent walls)' },
-  { id: 'custom', label: 'Custom' },
+const FLOW_PATTERNS: { id: FlowPattern; label: string; tooltip: string }[] = [
+  {
+    id: 'I_flow',
+    label: 'I-flow (straight through)',
+    tooltip:
+      'Inbound and outbound on opposite walls. Longest travel cycle but cleanest separation; suits high-throughput single-purpose DCs.',
+  },
+  {
+    id: 'U_flow',
+    label: 'U-flow (same wall)',
+    tooltip:
+      'Inbound and outbound on the same wall. Shortest dock-area travel; good for cross-docking; trickier yard management.',
+  },
+  {
+    id: 'L_flow',
+    label: 'L-flow (adjacent walls)',
+    tooltip:
+      'Inbound and outbound on perpendicular walls. Compromise between I and U; common when site shape forces a 90° turn.',
+  },
+  {
+    id: 'custom',
+    label: 'Custom',
+    tooltip: 'User-drawn polyline (advanced — Phase 7+ — site-specific routes).',
+  },
 ];
 
 export function LayoutTab() {
@@ -110,25 +175,31 @@ export function LayoutTab() {
                         onChange={() => toggleLayer(l.id)}
                         className="h-3 w-3"
                       />
-                      <label htmlFor={`layer-${l.id}`} className="select-none">
+                      <label htmlFor={`layer-${l.id}`} className="select-none flex-1">
                         {l.label}
                       </label>
+                      <InfoTip content={l.tooltip} side="right" label={`About ${l.label}`} />
                     </li>
                   ))}
                 </ul>
               </div>
 
               <div className="rounded-md border border-border bg-card p-3">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   Flow pattern
+                  <InfoTip
+                    content="Material flow shape. I = inbound and outbound on opposite walls (longest cycle, cleanest). U = same wall (shortest, harder yard). L = adjacent walls (compromise). Picks the arrow geometry on the diagram."
+                    side="right"
+                  />
                 </h3>
                 <select
                   value={flowPattern}
                   onChange={(e) => setFlowPattern(e.target.value as FlowPattern)}
                   className="w-full text-xs rounded-sm border border-border bg-background px-2 py-1"
+                  title={FLOW_PATTERNS.find((p) => p.id === flowPattern)?.tooltip}
                 >
                   {FLOW_PATTERNS.map((p) => (
-                    <option key={p.id} value={p.id}>
+                    <option key={p.id} value={p.id} title={p.tooltip}>
                       {p.label}
                     </option>
                   ))}
@@ -157,28 +228,38 @@ export function LayoutTab() {
             {/* Diagram */}
             <div className="rounded-md border border-border bg-card p-3 overflow-auto">
               <div className="flex items-center justify-end gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (svgRef.current) downloadSvg(svgRef.current, `${exportFileBase}-layout.svg`);
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-sm border border-border hover:bg-accent"
+                <Tooltip
+                  content="Vector format. Scales to any print size with no quality loss. Best for client deliverables and editing in Visio / Illustrator."
+                  side="bottom"
                 >
-                  <Download className="h-3 w-3" />
-                  SVG
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (svgRef.current) {
-                      void downloadPng(svgRef.current, `${exportFileBase}-layout.png`);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-sm border border-border hover:bg-accent"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (svgRef.current) downloadSvg(svgRef.current, `${exportFileBase}-layout.svg`);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-sm border border-border hover:bg-accent"
+                  >
+                    <Download className="h-3 w-3" />
+                    SVG
+                  </button>
+                </Tooltip>
+                <Tooltip
+                  content="2× raster export. Good for slide decks, email, screenshots. Fixed pixel size (will pixelate if blown up further)."
+                  side="bottom"
                 >
-                  <ImageIcon className="h-3 w-3" />
-                  PNG
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (svgRef.current) {
+                        void downloadPng(svgRef.current, `${exportFileBase}-layout.png`);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-sm border border-border hover:bg-accent"
+                  >
+                    <ImageIcon className="h-3 w-3" />
+                    PNG
+                  </button>
+                </Tooltip>
               </div>
               <LayoutSvg layout={layout} svgRef={svgRef} />
               <Legend />

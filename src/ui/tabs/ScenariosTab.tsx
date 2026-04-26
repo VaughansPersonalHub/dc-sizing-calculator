@@ -12,6 +12,8 @@ import {
   SHORTCUT_RUN_ENGINE_EVENT,
   SHORTCUT_RUN_TORNADO_EVENT,
 } from '../hooks/useKeyboardShortcuts';
+import { Tooltip } from '../components/Tooltip';
+import { InfoTip } from '../components/InfoTip';
 import { cn } from '../../utils/cn';
 
 export function ScenariosTab() {
@@ -135,22 +137,37 @@ export function ScenariosTab() {
 
       <div className="rounded-md border border-border bg-card p-5 mt-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            disabled={!canRun}
-            onClick={onRun}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-scc-charcoal text-scc-gold disabled:opacity-40"
+          <Tooltip
+            content={
+              <span>
+                Runs Steps 0-12 of the engine pipeline against this engagement&apos;s SKU set, ops profile,
+                and selected automation. Output drives the Layout tab and every export.{' '}
+                <kbd className="font-mono">R</kbd>
+              </span>
+            }
+            side="bottom"
           >
-            {status === 'running' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            Run engine on baseline
-          </button>
+            <button
+              type="button"
+              disabled={!canRun}
+              onClick={onRun}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-scc-charcoal text-scc-gold disabled:opacity-40"
+            >
+              {status === 'running' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              Run engine on baseline
+            </button>
+          </Tooltip>
 
           <label className="text-xs flex items-center gap-1.5">
             <span className="text-muted-foreground">Automation:</span>
+            <InfoTip
+              content="Automation system that replaces conventional racking in Step 12. Each option has its own density, robot/port count, and throughput model. Conventional means no override — Steps 1-11 run as a standard pallet-rack DC."
+              side="bottom"
+            />
             <select
               className="text-xs bg-background border border-border rounded-md px-2 py-1"
               value={automationSystemId}
@@ -188,19 +205,30 @@ export function ScenariosTab() {
       {lastResult && (
         <div className="mt-6 rounded-md border border-border bg-card p-5">
           <div className="flex items-center gap-3 mb-3">
-            <button
-              type="button"
-              disabled={!canRunTornado}
-              onClick={onRunTornado}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-scc-charcoal text-scc-gold disabled:opacity-40"
+            <Tooltip
+              content={
+                <span>
+                  17-parameter sensitivity (SPEC §13). Each parameter swings ±25% (or its calibrated band);
+                  the tool ranks impact on footprint or peak FTE. Use to find the most leverage-y design
+                  decisions. <kbd className="font-mono">T</kbd>
+                </span>
+              }
+              side="bottom"
             >
-              {tornadoStatus === 'running' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <BarChart3 className="h-4 w-4" />
-              )}
-              Run tornado (17 params × low/high)
-            </button>
+              <button
+                type="button"
+                disabled={!canRunTornado}
+                onClick={onRunTornado}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-scc-charcoal text-scc-gold disabled:opacity-40"
+              >
+                {tornadoStatus === 'running' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <BarChart3 className="h-4 w-4" />
+                )}
+                Run tornado (17 params × low/high)
+              </button>
+            </Tooltip>
             <div className="text-xs text-muted-foreground">
               {tornadoStatus === 'running' && tornadoProgress.total > 0 && (
                 <>
@@ -222,30 +250,40 @@ export function ScenariosTab() {
             <>
               <div className="flex items-center gap-2 mb-2 text-xs">
                 <span className="text-muted-foreground">Metric:</span>
-                <button
-                  type="button"
-                  className={cn(
-                    'px-2 py-0.5 rounded',
-                    tornadoMetric === 'footprint'
-                      ? 'bg-scc-charcoal text-scc-gold'
-                      : 'bg-card border border-border'
-                  )}
-                  onClick={() => setTornadoMetric('footprint')}
+                <Tooltip
+                  content="Difference in total building GFA (m²) between baseline and each variant. Positive bars push the footprint up; negative bars pull it down."
+                  side="top"
                 >
-                  Footprint Δ (m²)
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    'px-2 py-0.5 rounded',
-                    tornadoMetric === 'fte'
-                      ? 'bg-scc-charcoal text-scc-gold'
-                      : 'bg-card border border-border'
-                  )}
-                  onClick={() => setTornadoMetric('fte')}
+                  <button
+                    type="button"
+                    className={cn(
+                      'px-2 py-0.5 rounded',
+                      tornadoMetric === 'footprint'
+                        ? 'bg-scc-charcoal text-scc-gold'
+                        : 'bg-card border border-border'
+                    )}
+                    onClick={() => setTornadoMetric('footprint')}
+                  >
+                    Footprint Δ (m²)
+                  </button>
+                </Tooltip>
+                <Tooltip
+                  content="Difference in peak-week labour headcount between baseline and each variant. Useful to find the parameters that most affect operating cost."
+                  side="top"
                 >
-                  Peak FTE Δ
-                </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      'px-2 py-0.5 rounded',
+                      tornadoMetric === 'fte'
+                        ? 'bg-scc-charcoal text-scc-gold'
+                        : 'bg-card border border-border'
+                    )}
+                    onClick={() => setTornadoMetric('fte')}
+                  >
+                    Peak FTE Δ
+                  </button>
+                </Tooltip>
               </div>
               <div className="overflow-auto">
                 <TornadoChart tornado={lastTornado} metric={tornadoMetric} />
