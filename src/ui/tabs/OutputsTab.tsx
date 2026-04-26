@@ -5,12 +5,14 @@
 // Assumptions CSV. Chunks 2 + 3 add Summary PDF, PPT tornado, and the
 // .scc snapshot round-trip.
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, FileSpreadsheet, FileText } from 'lucide-react';
+import { AlertTriangle, FileSpreadsheet, FileText, FileType } from 'lucide-react';
 import { useEngineStore } from '../../stores/engine.store';
 import { useEngagementStore } from '../../stores/engagement.store';
 import { db } from '../../db/schema';
 import type { PipelineOutputs } from '../../engine/pipeline';
+import type { TornadoResult } from '../../engine/tornado';
 import {
   buildScheduleOfAreasWorkbook,
   workbookToArrayBuffer,
@@ -21,6 +23,7 @@ import { cn } from '../../utils/cn';
 
 export function OutputsTab() {
   const lastResult = useEngineStore((s) => s.lastResult) as PipelineOutputs | null;
+  const lastTornado = useEngineStore((s) => s.lastTornado) as TornadoResult | null;
   const activeEngagementId = useEngagementStore((s) => s.activeEngagementId);
   const engagement = useEngagementStore((s) => {
     const id = s.activeEngagementId;
@@ -28,6 +31,7 @@ export function OutputsTab() {
     return s.availableEngagements.find((e) => e.id === id) ?? null;
   });
   const regionProfile = useEngagementStore((s) => s.regionProfile);
+  const [pdfBuilding, setPdfBuilding] = useState(false);
 
   const fileBase = fileBaseFromName(engagement?.name);
   const engagementName = engagement?.name;
@@ -62,6 +66,24 @@ export function OutputsTab() {
       new Blob([csv], { type: 'text/csv;charset=utf-8' }),
       `${fileBase}-assumptions.csv`
     );
+  };
+
+  const downloadPdf = async () => {
+    if (!lastResult) return;
+    setPdfBuilding(true);
+    try {
+      // Dynamic-import keeps react-pdf (~1.7 MB) out of the entry chunk.
+      const { renderSummaryPdf } = await import('../../exports/pdf-renderer');
+      const blob = await renderSummaryPdf({
+        result: lastResult,
+        engagementName,
+        regionProfile: region,
+        tornado: lastTornado,
+      });
+      triggerDownload(blob, `${fileBase}-summary.pdf`);
+    } finally {
+      setPdfBuilding(false);
+    }
   };
 
   return (
@@ -115,11 +137,23 @@ export function OutputsTab() {
             void downloadAssumptions();
           }}
         />
+
+        <ExportCard
+          icon={<FileType className="h-4 w-4" />}
+          title="Summary report (PDF)"
+          description="Cover page with feasibility verdict, key metrics (footprint, FTE, MHE, docks), schedule of areas, and the latest tornado top-10 sensitivities (when run)."
+          phase="Chunk 2"
+          disabled={!lastResult || pdfBuilding}
+          buttonLabel={pdfBuilding ? 'Building…' : 'Download'}
+          onClick={() => {
+            void downloadPdf();
+          }}
+        />
       </div>
 
       <p className="mt-6 text-xs text-muted-foreground">
-        <strong>Coming next (Phase 8 Chunks 2 + 3):</strong> Summary PDF
-        (react-pdf), Tornado deck (pptxgenjs), .scc snapshot import / export.
+        <strong>Coming next (Phase 8 Chunk 3):</strong> Tornado deck
+        (pptxgenjs) + .scc snapshot import / export.
       </p>
     </div>
   );
@@ -132,6 +166,7 @@ function ExportCard({
   phase,
   disabled,
   onClick,
+  buttonLabel,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -139,6 +174,7 @@ function ExportCard({
   phase: string;
   disabled: boolean;
   onClick: () => void;
+  buttonLabel?: string;
 }) {
   return (
     <div className="rounded-md border border-border bg-card p-4">
@@ -159,7 +195,7 @@ function ExportCard({
           disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
         )}
       >
-        Download
+        {buttonLabel ?? 'Download'}
       </button>
     </div>
   );
