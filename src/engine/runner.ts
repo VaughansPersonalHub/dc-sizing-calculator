@@ -19,6 +19,7 @@ import type {
   EngineMheClass,
   EngineProductivityCell,
   EngineRegionalContext,
+  EngineAutomationSystem,
 } from './models';
 import type { OpsProfile } from '../schemas/scenario';
 import type { SkuRecord } from '../schemas/sku';
@@ -28,6 +29,7 @@ import type {
   BuildingTemplate,
   MheClass,
   ProductivityCell,
+  AutomationSystem,
 } from '../schemas/libraries';
 import type { RegionId } from '../schemas/regional';
 
@@ -74,6 +76,7 @@ export async function runEngineForEngagement(
     const buildings = dataStore.libraries.buildings;
     const mhe = dataStore.libraries.mhe;
     const productivity = dataStore.libraries.productivity;
+    const automation = dataStore.libraries.automation;
     if (racks.length === 0) throw new Error('rack library is empty');
     if (pallets.length === 0) throw new Error('pallet library is empty');
     if (mhe.length === 0) throw new Error('MHE library is empty');
@@ -102,6 +105,7 @@ export async function runEngineForEngagement(
       envelope: toEngineEnvelope(building),
       productivity: productivity.map(toEngineProductivityCell),
       mheLibrary: mhe.map(toEngineMheClass),
+      automationLibrary: automation.map(toEngineAutomationSystem),
       regional: toEngineRegionalContext(engagement.regionProfile),
       halalRequired: engagement.halalCertifiedRequired,
       isBonded: engagement.isBonded,
@@ -234,6 +238,19 @@ function toEngineMheClass(m: MheClass): EngineMheClass {
     battery: m.battery,
     utilisationTargetDefault: m.utilisationTargetDefault,
     ratePerTaskPerHour: m.ratePerTaskPerHour,
+  };
+}
+
+function toEngineAutomationSystem(a: AutomationSystem): EngineAutomationSystem {
+  return {
+    system_id: a.system_id,
+    category: a.category,
+    densityUnit: a.typicalDensity.unit,
+    densityValue: a.typicalDensity.value,
+    throughputPerRobotPerHour: a.throughputPerRobotPerHour,
+    throughputPerAislePerHour: a.throughputPerAislePerHour,
+    throughputPerHour: a.throughputPerHour,
+    defaultPackingEfficiency: a.defaultPackingEfficiency,
   };
 }
 

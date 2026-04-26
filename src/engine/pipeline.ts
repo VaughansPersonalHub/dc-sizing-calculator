@@ -30,6 +30,7 @@ import { runStep08MheFleet, type Step08Outputs } from './steps/Step08MheFleet';
 import { runStep09DockSchedule, type Step09Outputs } from './steps/Step09DockSchedule';
 import { runStep10SupportAreas, type Step10Outputs } from './steps/Step10SupportAreas';
 import { runStep11FootprintRollup, type Step11Outputs } from './steps/Step11FootprintRollup';
+import { runStep12Automation, type Step12Outputs } from './steps/Step12Automation';
 import type {
   EngineSku,
   EngineOpsProfile,
@@ -39,6 +40,8 @@ import type {
   EngineMheClass,
   EngineProductivityCell,
   EngineRegionalContext,
+  EngineAutomationSystem,
+  EngineAutomationConfig,
 } from './models';
 
 export interface PipelineInputs {
@@ -51,6 +54,11 @@ export interface PipelineInputs {
   productivity: EngineProductivityCell[];
   /** MHE library (Step 8). Required for fleet calc. */
   mheLibrary: EngineMheClass[];
+  /** Automation library (Step 12). Empty array = conventional only. */
+  automationLibrary?: EngineAutomationSystem[];
+  /** Optional automation override — when present, Step 12 runs and Step 11
+   *  swaps the conventional storage area for the automated zone. */
+  automationConfig?: EngineAutomationConfig;
   /** Region-scoped context (Surau / Ramadan / officeM2/FTE). */
   regional: EngineRegionalContext;
   driverCurve?: ForwardDriverCurve;
@@ -85,6 +93,8 @@ export interface PipelineOutputs {
   step9: Step09Outputs;
   step10: Step10Outputs;
   step11: Step11Outputs;
+  /** Optional — only present when AutomationConfig was supplied. */
+  step12: Step12Outputs | null;
   feasibility: {
     clearHeightOk: boolean;
     seismicOk: boolean;
@@ -228,6 +238,19 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     envelope: inputs.envelope,
   });
 
+  // Step 12 only runs when an automation config is supplied. Output
+  // surfaces an alternative footprint + robot count; downstream UI can
+  // compare it to the conventional Step 11 rollup.
+  const step12 = inputs.automationConfig && inputs.automationLibrary
+    ? runStep12Automation({
+        config: inputs.automationConfig,
+        library: inputs.automationLibrary,
+        step3,
+        step5,
+        step6,
+      })
+    : null;
+
   return {
     validation,
     step1,
@@ -243,6 +266,7 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     step9,
     step10,
     step11,
+    step12,
     feasibility: {
       clearHeightOk: step4_5.ok,
       seismicOk: step4_6.ok,

@@ -82,6 +82,8 @@ interface WorkerInputsJson {
   envelope: PipelineInputs['envelope'];
   productivity: PipelineInputs['productivity'];
   mheLibrary: PipelineInputs['mheLibrary'];
+  automationLibrary?: PipelineInputs['automationLibrary'];
+  automationConfig?: PipelineInputs['automationConfig'];
   regional: PipelineInputs['regional'];
   driverCurve?: PipelineInputs['driverCurve'];
   halalRequired: boolean;
@@ -118,6 +120,8 @@ function decodeInputs(
     envelope: parsed.envelope,
     productivity: parsed.productivity,
     mheLibrary: parsed.mheLibrary,
+    automationLibrary: parsed.automationLibrary,
+    automationConfig: parsed.automationConfig,
     regional: parsed.regional,
     driverCurve: parsed.driverCurve,
     halalRequired: parsed.halalRequired,

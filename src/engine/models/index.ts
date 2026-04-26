@@ -202,6 +202,52 @@ export interface EngineProductivityCell {
   g2pPortWalkDistanceM?: number;
 }
 
+// Automation system — Step 12 density-based override. The engagement picks
+// one and supplies overrides through AutomationConfig.
+export interface EngineAutomationSystem {
+  system_id: string;
+  category:
+    | 'g2p_cubic'
+    | 'g2p_shelf'
+    | 'acr_case'
+    | 'case_picking'
+    | 'pallet_shuttle'
+    | 'mini_load_asrs'
+    | 'pallet_agv'
+    | 'sortation';
+  /** Density unit (bins/m², compartments/m², cases/m², pallets/m², etc.). */
+  densityUnit: string;
+  densityValue: number;
+  throughputPerRobotPerHour?: number;
+  throughputPerAislePerHour?: number;
+  throughputPerHour?: number;
+  defaultPackingEfficiency: number;
+}
+
+export interface EngineAutomationConfig {
+  system_id: string;
+  /** AutoStore stack height (bins high). Default 12. */
+  stackHeight?: number;
+  /** Override the library's typical cell density. */
+  cellsPerM2?: number;
+  /** Pallet shuttle: shuttles per aisle (typically 1 single-deep / 2 mother-child). */
+  shuttlesPerAisle?: number;
+  /** Pallet shuttle channel depth (m). */
+  channelDepth?: number;
+  /** Manual port count override; else derived from throughput. */
+  portsManual?: number;
+  /** Manual robot count override; else derived from throughput. */
+  robotsManual?: number;
+  /** When false, robotCount is forced to 1 (planning what-if). */
+  sizeToThroughputTarget: boolean;
+  /** Packing efficiency. Default 0.82 (CPG); 0.65 for softlines. */
+  packingEfficiency: number;
+  /** Pallet shuttle: mother-child mode adds aisle density. */
+  motherChildMode: boolean;
+  /** Front-end depth (m) for ports + induction. Default depends on system. */
+  frontEndDepthM?: number;
+}
+
 // Region-scoped context that the engine reads but isn't part of opsProfile.
 // Drives Surau sizing, Ramadan derate, halal uplift, etc.
 export interface EngineRegionalContext {
