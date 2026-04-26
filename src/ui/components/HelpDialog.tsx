@@ -8,7 +8,7 @@
 // adds limitations, 10.6 adds calibration benchmarks. They land as
 // extra <Section> blocks here pulling from src/ui/help/content.ts.
 
-import { useEffect, useRef, type ComponentType } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import {
   X,
   Keyboard,
@@ -19,12 +19,14 @@ import {
   FileText,
   Sparkles,
   Gauge,
+  Network,
 } from 'lucide-react';
 import { KEYBOARD_SHORTCUTS, TAB_MAP, GLOSSARY } from '../help/content';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
 import { CITATIONS } from '../help/citations';
 import { BENCHMARKS } from '../help/benchmarks';
 import { StepExplainerCard } from './StepExplainer';
+import { LogicMap } from './LogicMap';
 
 interface HelpDialogProps {
   open: boolean;
@@ -35,6 +37,7 @@ interface HelpDialogProps {
 
 export function HelpDialog({ open, onClose, onReplayTour }: HelpDialogProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [logicMapOpen, setLogicMapOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -94,6 +97,15 @@ export function HelpDialog({ open, onClose, onReplayTour }: HelpDialogProps) {
               Replay the 7-step intro tour
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setLogicMapOpen(true)}
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-border bg-card hover:bg-accent text-foreground text-xs font-medium"
+          >
+            <Network className="h-3.5 w-3.5" />
+            Open the engine logic map (DAG of pipeline steps)
+          </button>
 
           <Section icon={Keyboard} title="Keyboard shortcuts">
             <ul className="space-y-1.5">
@@ -271,6 +283,8 @@ export function HelpDialog({ open, onClose, onReplayTour }: HelpDialogProps) {
               ))}
             </ul>
           </Section>
+
+          <LogicMap open={logicMapOpen} onClose={() => setLogicMapOpen(false)} />
 
           <Section icon={BookOpen} title="Glossary">
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
