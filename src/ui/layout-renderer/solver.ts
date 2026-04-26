@@ -1,28 +1,35 @@
-// Phase 5 — Simple layout solver.
-// SPEC §13 Phase 5 deliverable: rectangle packing + fit check + basic SVG.
-// Phase 7 (Visio-grade) replaces this with polygon support, per-zone aisle
-// orientation, flexible dock placement and 11 toggleable layers.
+// Phase 7 — Visio-grade layout solver.
 //
 // Geometry conventions:
-//   • Origin (0, 0) = south-west corner of the envelope
+//   • Origin (0, 0) = south-west corner of the envelope bounding box
 //   • +x to the east, +y to the north
 //   • All units in metres
 //
 // Algorithm:
 //   1. Reserve a south strip (DOCK_STRIP_DEPTH_M) for staging + dock apron.
 //   2. Drop dock doors along the south wall — inbound on the west half,
-//      outbound on the east half, evenly spaced.
+//      outbound on the east half, evenly spaced. Phase 7 also accepts
+//      explicit user-placed doors (`userDocks`) and merges them in.
 //   3. Pack storage zones north of the dock strip using shelf packing
-//      (largest-first by area). Storage zones come from Step 5 with
-//      authoritative width × depth.
+//      (largest-first by area). Each storage zone carries an aisle hint
+//      (orientation + count) derived from its Step 5 footprint.
 //   4. Pack support zones along the east wall (office cluster + Surau +
 //      customs + battery + antechamber). Sized from Step 10 areas.
-//   5. Anything that doesn't fit gets placed at an "overflow" anchor
-//      south-east of the envelope and flagged.
+//   5. When the envelope is a polygon (not a rectangle), each placed rect
+//      is also tested for polygon containment — if any corner falls outside
+//      the polygon the rect is flagged as overflow.
+//   6. Anything that doesn't fit gets placed at an "overflow" anchor and
+//      flagged for the infeasibility overlay.
 
 import type { PipelineOutputs } from '../../engine/pipeline';
 import type { EngineBuildingEnvelope } from '../../engine/models';
-import type { LayoutResult, PlacedRect, PlacedDoor, LayoutZoneRole } from './types';
+import type {
+  LayoutResult,
+  PlacedRect,
+  PlacedDoor,
+  LayoutZoneRole,
+  LayoutPolygon,
+} from './types';
 
 const DOCK_STRIP_DEPTH_M = 25;
 const DOCK_DOOR_WIDTH_M = 3.5;
@@ -33,6 +40,11 @@ const ZONE_GAP_M = 1.5;
 interface SolverInputs {
   result: PipelineOutputs;
   envelope: EngineBuildingEnvelope;
+  /**
+   * Optional user-placed doors from useLayoutViewStore.userDocks. When
+   * provided, they replace the auto-distributed south-wall doors.
+   */
+  userDocks?: PlacedDoor[];
 }
 
 export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
@@ -40,6 +52,7 @@ export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
   const env = inputs.envelope.envelope;
   const Lx = env.lengthM;
   const Ly = env.widthM;
+  const polygon: LayoutPolygon = env.polygonVertices ?? null;
 
   const rects: PlacedRect[] = [];
   const doors: PlacedDoor[] = [];
@@ -60,34 +73,40 @@ export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
   });
 
   // ----------------------------------------------------------------
-  // 2. Dock doors — inbound left, outbound right
+  // 2. Dock doors — user overrides win, otherwise auto-distribute
   // ----------------------------------------------------------------
-  const inboundDoors = inputs.result.step9.inbound.doorsRequired;
-  const outboundDoors = inputs.result.step9.outbound.doorsRequired;
-  const placeDoors = (count: number, startX: number, endX: number, dir: 'inbound' | 'outbound') => {
-    if (count <= 0) return;
-    const usableLen = Math.max(0, endX - startX);
-    const pitch = Math.min(DOCK_DOOR_PITCH_M, usableLen / Math.max(1, count));
-    const gap = Math.max(0, pitch - DOCK_DOOR_WIDTH_M);
-    let cursor = startX + gap / 2;
-    for (let i = 0; i < count; i++) {
-      if (cursor + DOCK_DOOR_WIDTH_M > endX) break;
-      doors.push({
-        id: `${dir}_${i}`,
-        wall: 'south',
-        position: cursor,
-        widthM: DOCK_DOOR_WIDTH_M,
-        direction: dir,
-      });
-      cursor += pitch;
-    }
-  };
-  const half = Lx / 2;
-  placeDoors(inboundDoors, 0, half, 'inbound');
-  placeDoors(outboundDoors, half, Lx, 'outbound');
+  if (inputs.userDocks && inputs.userDocks.length > 0) {
+    doors.push(...inputs.userDocks);
+  } else {
+    const inboundDoors = inputs.result.step9.inbound.doorsRequired;
+    const outboundDoors = inputs.result.step9.outbound.doorsRequired;
+    const placeDoors = (count: number, startX: number, endX: number, dir: 'inbound' | 'outbound') => {
+      if (count <= 0) return;
+      const usableLen = Math.max(0, endX - startX);
+      const pitch = Math.min(DOCK_DOOR_PITCH_M, usableLen / Math.max(1, count));
+      const gap = Math.max(0, pitch - DOCK_DOOR_WIDTH_M);
+      let cursor = startX + gap / 2;
+      for (let i = 0; i < count; i++) {
+        if (cursor + DOCK_DOOR_WIDTH_M > endX) break;
+        doors.push({
+          id: `${dir}_${i}`,
+          wall: 'south',
+          position: cursor,
+          widthM: DOCK_DOOR_WIDTH_M,
+          direction: dir,
+        });
+        cursor += pitch;
+      }
+    };
+    const half = Lx / 2;
+    placeDoors(inboundDoors, 0, half, 'inbound');
+    placeDoors(outboundDoors, half, Lx, 'outbound');
+  }
 
   // ----------------------------------------------------------------
   // 3. Storage zones — north of the dock strip, west of the support strip
+  //    Each zone carries an aisle hint sourced from Step 5 (orientation +
+  //    aisle count).
   // ----------------------------------------------------------------
   const storageOriginY = dockStripDepth + ZONE_GAP_M;
   const storageMaxY = Ly;
@@ -104,19 +123,21 @@ export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
       widthM: z.zoneWidthRawM,
       depthM: z.zoneDepthRawM,
       areaM2: z.alignedAreaM2,
+      orientation: z.orientation,
+      // Aisle count = rows for matches_flow (one aisle per row pair),
+      // baysPerRow for perpendicular_to_flow.
+      aisleCount: z.orientation === 'matches_flow' ? z.rows : z.baysPerRow,
     }))
     // Largest-area first → biggest zones secure the prime real estate.
     .sort((a, b) => b.areaM2 - a.areaM2);
 
-  // Shelf packing: row-by-row, west-to-east; new row when current row's
-  // remaining width can't accommodate the next zone.
+  // Shelf packing: row-by-row, west-to-east.
   let cursorX = 0;
   let cursorY = storageOriginY;
   let rowMaxDepth = 0;
   for (const zone of storageZones) {
     const fitsInRow = cursorX + zone.widthM <= storageRegionWidth;
     if (!fitsInRow) {
-      // New row.
       cursorX = 0;
       cursorY += rowMaxDepth + ZONE_GAP_M;
       rowMaxDepth = 0;
@@ -133,6 +154,10 @@ export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
       widthM: zone.widthM,
       depthM: zone.depthM,
       overflow: overflows,
+      aisles: {
+        orientation: zone.orientation,
+        count: Math.max(0, zone.aisleCount),
+      },
     });
     if (!overflows) {
       cursorX += zone.widthM + ZONE_GAP_M;
@@ -165,7 +190,28 @@ export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
   }
 
   // ----------------------------------------------------------------
-  // 5. Roll up overflow stats
+  // 5. Polygon clip — when the envelope is a polygon (not a rect),
+  //    each placed rect must be fully inside the polygon. Anything
+  //    that strays outside gets retro-flagged as overflow.
+  // ----------------------------------------------------------------
+  if (polygon && polygon.length >= 3) {
+    for (const r of rects) {
+      if (r.overflow) continue;
+      const corners: { x: number; y: number }[] = [
+        { x: r.x, y: r.y },
+        { x: r.x + r.widthM, y: r.y },
+        { x: r.x, y: r.y + r.depthM },
+        { x: r.x + r.widthM, y: r.y + r.depthM },
+      ];
+      const allInside = corners.every((c) => pointInPolygon(c, polygon));
+      if (!allInside) {
+        r.overflow = true;
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // 6. Roll up overflow stats + Step 11 infeasibility flags
   // ----------------------------------------------------------------
   let overflowAreaM2 = 0;
   let overflowed = false;
@@ -175,22 +221,37 @@ export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
       overflowAreaM2 += r.widthM * r.depthM;
     }
   }
-  // Sanity: even if every rect fit, the building GFA may still exceed the
-  // envelope area (Step 11 overEnvelope). Surface that as overflow too.
   if (!overflowed && inputs.result.step11.structural.overEnvelope) {
     overflowed = true;
     overflowAreaM2 = inputs.result.step11.structural.envelopeShortfallM2;
   }
+
+  const flags = inputs.result.step11.feasibilityFlags;
+  const infeasibility = {
+    envelopeOverflow: overflowed || inputs.result.step11.structural.overEnvelope,
+    clearHeightFail: !flags.clearHeight,
+    slabFail: !flags.slab,
+    seismicFail: !flags.seismic,
+    envelopeShortfallM2: overflowed
+      ? Math.max(overflowAreaM2, inputs.result.step11.structural.envelopeShortfallM2)
+      : 0,
+  };
 
   void storageRegionDepth;
 
   return {
     envelopeLengthM: Lx,
     envelopeWidthM: Ly,
+    polygon,
+    columnGrid: {
+      spacingXM: inputs.envelope.columnGrid.spacingXM,
+      spacingYM: inputs.envelope.columnGrid.spacingYM,
+    },
     rects,
     doors,
     overflowed,
     overflowAreaM2,
+    infeasibility,
     elapsedMs: performance.now() - t0,
   };
 }
@@ -234,4 +295,25 @@ function roleForZone(zoneName: string): LayoutZoneRole {
   if (zoneName === 'CLS') return 'storage_cls';
   if (zoneName.startsWith('Shelf')) return 'storage_shelf';
   return 'storage_pfp';
+}
+
+/**
+ * Standard ray-casting point-in-polygon test. Vertices are treated as a
+ * closed loop (last connects to first). Boundary points count as inside.
+ */
+export function pointInPolygon(
+  pt: { x: number; y: number },
+  vertices: { x: number; y: number }[]
+): boolean {
+  let inside = false;
+  const n = vertices.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const vi = vertices[i];
+    const vj = vertices[j];
+    const intersects =
+      vi.y > pt.y !== vj.y > pt.y &&
+      pt.x < ((vj.x - vi.x) * (pt.y - vi.y)) / (vj.y - vi.y || 1e-12) + vi.x;
+    if (intersects) inside = !inside;
+  }
+  return inside;
 }

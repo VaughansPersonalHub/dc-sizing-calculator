@@ -36,6 +36,7 @@ export function useLayoutResult(): {
       envelope: {
         lengthM: buildingTemplate.envelope.lengthM,
         widthM: buildingTemplate.envelope.widthM,
+        polygonVertices: buildingTemplate.envelope.polygonVertices,
       },
       clearHeights: {
         usableRackM: buildingTemplate.clearHeights.usableRackM,

@@ -1,15 +1,19 @@
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useLayoutResult } from '../layout-renderer/useLayoutResult';
-import { SimpleLayoutSvg } from '../layout-renderer/SimpleLayoutSvg';
+import { LayoutSvg } from '../layout-renderer/LayoutSvg';
 import { useLayoutViewStore, type LayerId } from '../../stores/layout-view.store';
 import { cn } from '../../utils/cn';
 
-const PHASE_5_LAYERS: { id: LayerId; label: string }[] = [
+const LAYERS: { id: LayerId; label: string }[] = [
+  { id: 'grid', label: 'Column grid' },
   { id: 'storage', label: 'Storage zones' },
   { id: 'staging', label: 'Staging' },
   { id: 'docks', label: 'Docks' },
   { id: 'support', label: 'Support / office' },
+  { id: 'flow', label: 'Flow arrows' },
+  { id: 'fire_egress', label: 'Fire egress' },
+  { id: 'pedestrian', label: 'Pedestrian' },
   { id: 'labels', label: 'Labels' },
   { id: 'scale', label: 'Scale bar' },
   { id: 'north', label: 'Compass' },
@@ -25,15 +29,15 @@ export function LayoutTab() {
       <div className="flex items-baseline justify-between mb-1">
         <h2 className="text-2xl font-semibold tracking-tight">Block Diagram</h2>
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Phase 5 · simple rectangle layout
+          Phase 7 · Visio-grade layout
         </span>
       </div>
       <p className="text-sm text-muted-foreground mb-5">
-        Schematic block diagram of the engine result. Storage zones from
-        Step 5, dock placements from Step 9, and the support cluster from
-        Step 10 packed against the building envelope. Phase 7 will replace
-        this with full Visio-grade rendering (polygons, flow arrows, fire
-        egress, 11-layer toggle).
+        Block diagram of the engine result. Storage zones from Step 5
+        (with per-zone aisle orientation), dock placements from Step 9, and
+        the support cluster from Step 10 packed against the building
+        envelope. Polygon envelopes are clipped against the building
+        outline.
       </p>
 
       {!layout && (
@@ -57,7 +61,7 @@ export function LayoutTab() {
                 Layers
               </h3>
               <ul className="space-y-1.5 text-xs">
-                {PHASE_5_LAYERS.map((l) => (
+                {LAYERS.map((l) => (
                   <li key={l.id} className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -78,6 +82,7 @@ export function LayoutTab() {
               </h3>
               <ul className="space-y-1 text-xs">
                 <Stat label="Envelope" v={`${layout.envelopeLengthM} × ${layout.envelopeWidthM} m`} />
+                <Stat label="Polygon" v={layout.polygon ? `${layout.polygon.length} vtx` : 'rect'} />
                 <Stat label="Zones placed" v={layout.rects.filter((r) => !r.overflow).length} />
                 <Stat label="Doors" v={layout.doors.length} />
                 <Stat label="Solver" v={`${layout.elapsedMs.toFixed(1)} ms`} />
@@ -89,7 +94,7 @@ export function LayoutTab() {
 
             {/* Diagram */}
             <div className="rounded-md border border-border bg-card p-3 overflow-auto">
-              <SimpleLayoutSvg layout={layout} />
+              <LayoutSvg layout={layout} />
               <Legend />
             </div>
           </div>

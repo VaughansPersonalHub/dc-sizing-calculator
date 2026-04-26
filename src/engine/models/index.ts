@@ -145,7 +145,17 @@ export interface EngineRackSystem {
 
 export interface EngineBuildingEnvelope {
   /** Building dimensions (m). Layout solver packs against this rectangle. */
-  envelope: { lengthM: number; widthM: number };
+  envelope: {
+    lengthM: number;
+    widthM: number;
+    /**
+     * Optional polygon vertices (m, in envelope local coords with SW origin).
+     * Closed automatically — last vertex implicitly connects to first.
+     * When present, the layout solver clips placement against this polygon
+     * instead of the bounding rectangle. Phase 7 (SPEC §13).
+     */
+    polygonVertices?: { x: number; y: number }[] | null;
+  };
   clearHeights: { usableRackM: number; sprinklerClearanceM: number };
   floor: { slabLoadingTPerM2: number; totalFloorAreaM2: number };
   seismic: { designCategory: string; allowableRatio: number };
