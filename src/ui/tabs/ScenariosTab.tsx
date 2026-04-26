@@ -16,6 +16,7 @@ import { Tooltip } from '../components/Tooltip';
 import { InfoTip } from '../components/InfoTip';
 import { StepExplainerCard } from '../components/StepExplainer';
 import { BenchmarkChip } from '../components/BenchmarkChip';
+import { ProvenanceTag } from '../components/ProvenanceTag';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
 import { BENCHMARKS, type BenchmarkInput } from '../help/benchmarks';
 import { cn } from '../../utils/cn';
@@ -461,18 +462,18 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
           <Stat label="Daily inbound pallets" v={result.step6.daily.inboundPallets.toFixed(1)} />
           <Stat label="Daily outbound pallets" v={result.step6.daily.outboundPallets.toFixed(1)} />
           <Stat label="Daily pick lines" v={result.step6.daily.pickLinesPerDay.toFixed(0)} />
-          <Stat label="Peak pick lines" v={result.step6.peak.pickLinesPerDay.toFixed(0)} />
+          <Stat label="Peak pick lines" v={result.step6.peak.pickLinesPerDay.toFixed(0)} outputId="step-6.peak.pickLinesPerDay" />
         </Card>
 
         <Card title="Slot sizing" explainerId="step-3-slot-sizing" result={result}>
-          <Stat label="PFP positions" v={result.step3.totals.pfpPositions} />
+          <Stat label="PFP positions" v={result.step3.totals.pfpPositions} outputId="step-3.pfpPositions" />
           <Stat label="CLS lanes" v={result.step3.totals.clsLanes} />
           <Stat label="Shelf S/M/L" v={`${result.step3.totals.shelfPositionsSmall}/${result.step3.totals.shelfPositionsMedium}/${result.step3.totals.shelfPositionsLarge}`} />
           <Stat label="Repack SKUs" v={result.step3.totals.repackSkus} />
         </Card>
 
         <Card title="Footprint" explainerId="step-5-footprint" result={result}>
-          <Stat label="Total aligned m²" v={Math.round(result.step5.totalAlignedAreaM2).toLocaleString()} />
+          <Stat label="Total aligned m²" v={Math.round(result.step5.totalAlignedAreaM2).toLocaleString()} outputId="step-5.totalAlignedAreaM2" />
           <Stat label="Grid efficiency" v={(result.step5.averageGridEfficiency * 100).toFixed(0) + '%'} />
           <Stat label="Zones" v={result.step5.zones.length} />
         </Card>
@@ -493,7 +494,7 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
 
         <Card title="Step 7 · Labour" explainerId="step-7-labour" result={result}>
           <Stat label="Base FTE" v={result.step7.totalBaseFte.toFixed(1)} />
-          <Stat label="Peak FTE" v={result.step7.totalPeakFte.toFixed(1)} />
+          <Stat label="Peak FTE" v={result.step7.totalPeakFte.toFixed(1)} outputId="step-7.totalPeakFte" />
           <Stat label="Availability" v={(result.step7.availability * 100).toFixed(0) + '%'} />
           {result.step7.ramadanAnnualImpact > 0 && (
             <Stat label="Ramadan impact" v={(result.step7.ramadanAnnualImpact * 100).toFixed(1) + '%'} />
@@ -504,7 +505,7 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
         </Card>
 
         <Card title="Step 8 · MHE Fleet" explainerId="step-8-mhe" result={result}>
-          <Stat label="Total units" v={result.step8.totalUnits} />
+          <Stat label="Total units" v={result.step8.totalUnits} outputId="step-8.totalUnits" />
           <Stat label="Charging area" v={`${result.step8.totalChargingFootprintM2.toFixed(0)} m²`} />
           <Stat label="Charging kVA" v={result.step8.totalChargingKva.toFixed(0)} />
           {result.step8.fleets.map((f) => (
@@ -515,13 +516,13 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
         <Card title="Step 9 · Docks" explainerId="step-9-docks" result={result}>
           <Stat label="Inbound doors" v={result.step9.inbound.doorsRequired} />
           <Stat label="Outbound doors" v={result.step9.outbound.doorsRequired} />
-          <Stat label="Total" v={result.step9.totalDoors} />
-          <Stat label="Inbound cycle" v={`${result.step9.inbound.blendedCycleMin.toFixed(1)} min`} />
+          <Stat label="Total" v={result.step9.totalDoors} outputId="step-9.totalDoors" />
+          <Stat label="Inbound cycle" v={`${result.step9.inbound.blendedCycleMin.toFixed(1)} min`} outputId="step-9.inbound.blendedCycleMin" />
           <Stat label="Staging area" v={`${result.step9.staging.totalM2.toFixed(0)} m²`} />
         </Card>
 
         <Card title="Step 10 · Support areas" explainerId="step-10-support" result={result}>
-          <Stat label="Operational support" v={`${result.step10.operationalSupportM2.toFixed(0)} m²`} />
+          <Stat label="Operational support" v={`${result.step10.operationalSupportM2.toFixed(0)} m²`} outputId="step-10.totalSupportM2" />
           <Stat label="Office + amenities" v={`${result.step10.officeAndAmenitiesM2.toFixed(0)} m²`} />
           {result.step10.areas.surau > 0 && (
             <Stat label="Surau + ablution" v={`${(result.step10.areas.surau + result.step10.areas.ablution).toFixed(0)} m²`} />
@@ -536,9 +537,9 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
 
         <Card title="Step 11 · Footprint roll-up" explainerId="step-11-rollup" result={result}>
           <Stat label="Operational" v={`${result.step11.rollup.operationalM2.toFixed(0)} m²`} />
-          <Stat label="GFA (building)" v={`${result.step11.rollup.buildingFootprintGfaM2.toFixed(0)} m²`} />
+          <Stat label="GFA (building)" v={`${result.step11.rollup.buildingFootprintGfaM2.toFixed(0)} m²`} outputId="step-11.buildingFootprintGfaM2" />
           <Stat label="Canopy" v={`${result.step11.rollup.canopyAreaM2.toFixed(0)} m² ${result.step11.rollup.canopyCountedInCoverage ? '(counted)' : '(exempt)'}`} />
-          <Stat label="Site area" v={`${result.step11.rollup.siteAreaM2.toFixed(0)} m²`} />
+          <Stat label="Site area" v={`${result.step11.rollup.siteAreaM2.toFixed(0)} m²`} outputId="step-11.siteAreaM2" />
           <Stat label="Soft-space" v={`${result.step11.rollup.softSpace.totalM2.toFixed(0)} m²`} />
           {result.step11.rollup.automationSwapped && (
             <Stat label="Auto. savings" v={`${result.step11.rollup.automationSavingsM2.toFixed(0)} m²`} />
@@ -615,11 +616,14 @@ function Card({
   );
 }
 
-function Stat({ label, v }: { label: string; v: number | string }) {
+function Stat({ label, v, outputId }: { label: string; v: number | string; outputId?: string }) {
   return (
-    <li className="flex justify-between">
+    <li className="flex justify-between items-center gap-1.5">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono tabular-nums">{v}</span>
+      <span className="inline-flex items-center gap-1">
+        <span className="font-mono tabular-nums">{v}</span>
+        {outputId && <ProvenanceTag outputId={outputId} />}
+      </span>
     </li>
   );
 }
