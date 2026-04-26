@@ -178,6 +178,17 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] 37 new engine tests (Step 7+8: 10, Step 9+10: 16, Step 11: 11); 111/111 total passing
 - [x] `npm run build` + `npm run lint` (1 pre-existing warning) green; bundle 639 KB / 195 KB gz
 
+## Phase 5 gate — verified
+
+- [x] Pure-TS rectangle solver in `src/ui/layout-renderer/solver.ts` packs Step 5 zones, Step 9 doors, Step 10 support cluster against the building envelope
+- [x] Engine envelope grows {lengthM, widthM} so the solver knows the container shape
+- [x] LayoutTab renders the result via D3 scales + React SVG: envelope outline, role-coloured rects, south-wall doors (inbound/outbound), compass + scale bar + legend
+- [x] Fit-check banner reflects Step 11.overEnvelope + per-rect overflow; hatched red overlay on overflowing rects
+- [x] Layer toggles wired to `useLayoutViewStore` (storage / staging / docks / support / labels / scale / north)
+- [x] Solver runs in < 10 ms for 200-SKU engagements
+- [x] 6 new tests (placement, overflow, doors, support strip, empty zones, perf); 117/117 total passing
+- [x] `npm run build` + `npm run lint` green; bundle 669 KB / 206 KB gz (+30 KB for d3-scale)
+
 ## What not to do
 
 - Don't introduce a backend server. The architecture is Cloudflare-only.
