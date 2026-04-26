@@ -18,9 +18,11 @@ import { StepExplainerCard } from '../components/StepExplainer';
 import { BenchmarkChip } from '../components/BenchmarkChip';
 import { ProvenanceTag } from '../components/ProvenanceTag';
 import { NarrativeCard } from '../components/NarrativeCard';
+import { ConfidenceChip } from '../components/ConfidenceChip';
 import type { NarrativeInput } from '../help/narrative';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
 import { BENCHMARKS, type BenchmarkInput } from '../help/benchmarks';
+import { computeConfidence } from '../help/confidence';
 import { cn } from '../../utils/cn';
 
 export function ScenariosTab() {
@@ -604,14 +606,23 @@ function Card({
       }))
     : [];
   const visibleChips = chips.filter((c) => c.value !== null);
+  const confidence =
+    result && explainer
+      ? computeConfidence({
+          sensitivity: explainer.sensitivity,
+          totalSkus: result.validation.stats.totalSkus,
+          cleanSkus: result.validation.stats.cleanSkus,
+        })
+      : null;
   return (
     <div className="rounded-md border border-border bg-card p-4">
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
         {title}
       </h3>
       <ul className="space-y-1 text-xs">{children}</ul>
-      {visibleChips.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1">
+      {(visibleChips.length > 0 || confidence) && (
+        <div className="mt-2.5 flex flex-wrap gap-1 items-center">
+          {confidence && <ConfidenceChip score={confidence} />}
           {visibleChips.map(({ benchmark, value }) => (
             <BenchmarkChip key={benchmark.id} benchmark={benchmark} value={value} side="bottom" />
           ))}
