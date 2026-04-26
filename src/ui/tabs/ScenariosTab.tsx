@@ -17,6 +17,8 @@ import { InfoTip } from '../components/InfoTip';
 import { StepExplainerCard } from '../components/StepExplainer';
 import { BenchmarkChip } from '../components/BenchmarkChip';
 import { ProvenanceTag } from '../components/ProvenanceTag';
+import { NarrativeCard } from '../components/NarrativeCard';
+import type { NarrativeInput } from '../help/narrative';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
 import { BENCHMARKS, type BenchmarkInput } from '../help/benchmarks';
 import { cn } from '../../utils/cn';
@@ -204,7 +206,7 @@ export function ScenariosTab() {
       )}
 
       {lastResult && (
-        <ResultSummary result={lastResult} />
+        <ResultSummary result={lastResult} tornado={lastTornado} />
       )}
 
       {lastResult && (
@@ -430,7 +432,13 @@ interface EngineResultShape {
   meta: { schemaVersion: number; durationMs: number; skuCount: number; suppressedCount: number; completedAt: string };
 }
 
-function ResultSummary({ result }: { result: EngineResultShape }) {
+function ResultSummary({
+  result,
+  tornado,
+}: {
+  result: EngineResultShape;
+  tornado: TornadoResult | null;
+}) {
   const ok = result.feasibility.overall;
   return (
     <div className="mt-5 space-y-4">
@@ -449,6 +457,8 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
           {result.meta.suppressedCount} suppressed · peak year {result.step2.peakYear}
         </div>
       </div>
+
+      <NarrativeCard result={result as unknown as NarrativeInput} tornado={tornado} />
 
       <div className="grid grid-cols-2 gap-3">
         <Card title="Validation" explainerId="step-0-validation" result={result}>

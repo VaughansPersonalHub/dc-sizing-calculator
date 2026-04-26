@@ -28,6 +28,8 @@ import {
 } from '../../exports/scc-snapshot';
 import { triggerDownload, fileBaseFromName } from '../../exports/download';
 import { Tooltip } from '../components/Tooltip';
+import { NarrativeCard } from '../components/NarrativeCard';
+import type { NarrativeInput } from '../help/narrative';
 import { cn } from '../../utils/cn';
 
 export function OutputsTab() {
@@ -164,6 +166,14 @@ export function OutputsTab() {
         first; the Schedule of Areas pulls from <code>step1..step12</code>
         and the Assumptions CSV reflects the ops profile in <code>data.store</code>.
       </p>
+
+      {lastResult && (
+        <NarrativeCard
+          result={lastResult as unknown as NarrativeInput}
+          tornado={lastTornado}
+          className="mb-4"
+        />
+      )}
 
       {!lastResult && (
         <Banner kind="warning">
