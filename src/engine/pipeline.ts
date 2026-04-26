@@ -227,20 +227,10 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
     isBonded: inputs.isBonded ?? false,
   });
 
-  const step11 = runStep11FootprintRollup({
-    step3,
-    step4,
-    step4_5,
-    step4_6,
-    step5,
-    step10,
-    opsProfile: inputs.opsProfile,
-    envelope: inputs.envelope,
-  });
-
-  // Step 12 only runs when an automation config is supplied. Output
-  // surfaces an alternative footprint + robot count; downstream UI can
-  // compare it to the conventional Step 11 rollup.
+  // Step 12 runs BEFORE Step 11 so the rollup can substitute the
+  // automated zone footprint for the conventional storage areas it
+  // displaces. Only fires when an automationConfig is supplied — the
+  // baseline path keeps Step 11 reading conventional Step 5 directly.
   const step12 = inputs.automationConfig && inputs.automationLibrary
     ? runStep12Automation({
         config: inputs.automationConfig,
@@ -250,6 +240,18 @@ export function runPipeline(inputs: PipelineInputs): PipelineOutputs {
         step6,
       })
     : null;
+
+  const step11 = runStep11FootprintRollup({
+    step3,
+    step4,
+    step4_5,
+    step4_6,
+    step5,
+    step10,
+    step12,
+    opsProfile: inputs.opsProfile,
+    envelope: inputs.envelope,
+  });
 
   return {
     validation,

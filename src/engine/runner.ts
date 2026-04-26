@@ -11,11 +11,15 @@ import { useEngagementStore } from '../stores/engagement.store';
 import { useEngineStore } from '../stores/engine.store';
 import { runEngine } from './workerClient';
 import { buildEngineInputs } from './inputsBuilder';
+import type { EngineAutomationConfig } from './models';
 
 export interface RunEngineOptions {
   engagementId: string;
   /** Optional building template id; falls back to the regional default. */
   buildingTemplateId?: string;
+  /** Optional Step 12 automation override. When supplied, Step 11 swaps
+   *  the conventional storage zones for the automated footprint. */
+  automationConfig?: EngineAutomationConfig;
   onProgress?: (step: number, total: number, label: string) => void;
 }
 
@@ -45,6 +49,7 @@ export async function runEngineForEngagement(
     // off the SKU list to keep the JSON payload small.
     const inputsForWorker = {
       ...inputs,
+      automationConfig: opts.automationConfig,
       skus: inputs.skus.map(({ weeklyUnits: _w, ...rest }) => {
         void _w;
         return rest;

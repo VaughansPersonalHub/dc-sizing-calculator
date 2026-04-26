@@ -34,6 +34,7 @@ import type { Step04Outputs } from './Step04Bays';
 import type { ClearHeightResult, SeismicMassResult } from './Step04Bays';
 import type { Step05Outputs } from './Step05Footprint';
 import type { Step10Outputs } from './Step10SupportAreas';
+import type { Step12Outputs } from './Step12Automation';
 
 export interface Step11Inputs {
   step3: Step03Outputs;
@@ -42,12 +43,18 @@ export interface Step11Inputs {
   step4_6: SeismicMassResult;
   step5: Step05Outputs;
   step10: Step10Outputs;
+  /** Optional automation override. When present, Step 11 swaps the
+   *  conventional storage zones the automation system replaces (the same
+   *  ones Step 12 charged a delta against) for the automated zone +
+   *  frontEnd area. The result is reflected in operationalM2 and GFA. */
+  step12?: Step12Outputs | null;
   opsProfile: EngineOpsProfile;
   envelope: EngineBuildingEnvelope;
 }
 
 export interface FootprintRollup {
-  /** Σ racked-zone + operational support areas, post-halal-uplift. */
+  /** Σ racked-zone + operational support areas, post-halal-uplift.
+   *  When automation is present, this reflects the swapped storage path. */
   operationalM2: number;
   /** Office cluster (office + amenities + Surau + training + firstAid). */
   officeAndAmenitiesM2: number;
@@ -64,6 +71,13 @@ export interface FootprintRollup {
     phase2VerticalM2: number;
     totalM2: number;
   };
+  /** Conventional racked area before any automation swap (m²). Useful for
+   *  side-by-side comparisons in the UI. */
+  conventionalRackedM2: number;
+  /** True when automation swap was applied (step12 was non-null). */
+  automationSwapped: boolean;
+  /** Net m² saved by the automation swap (positive = automation saves area). */
+  automationSavingsM2: number;
 }
 
 export interface StructuralResult {
@@ -97,9 +111,22 @@ export function runStep11FootprintRollup(inputs: Step11Inputs): Step11Outputs {
   const halalFactor = inputs.step10.halalUpliftFactor;
 
   // --- Operational total: racked zones + operational support areas
-  const racked = inputs.step5.totalAlignedAreaM2;
+  const conventionalRacked = inputs.step5.totalAlignedAreaM2;
+  let rackedAfterAutomation = conventionalRacked;
+  let automationSwapped = false;
+  let automationSavings = 0;
+  if (inputs.step12) {
+    // Step 12 already reports replacedFootprintDelta (= conventional zone -
+    // automated zone). Apply it here, then add the front-end induction
+    // area for the automation system.
+    rackedAfterAutomation =
+      conventionalRacked - inputs.step12.replacedFootprintDelta + inputs.step12.frontEndAreaM2;
+    rackedAfterAutomation = Math.max(0, rackedAfterAutomation);
+    automationSavings = conventionalRacked - rackedAfterAutomation;
+    automationSwapped = true;
+  }
   const opSupport = inputs.step10.operationalSupportM2;
-  const operationalRaw = racked + opSupport;
+  const operationalRaw = rackedAfterAutomation + opSupport;
   const operationalM2 = operationalRaw * (1 + halalFactor);
 
   const officeAndAmenitiesM2 = inputs.step10.officeAndAmenitiesM2;
@@ -161,6 +188,9 @@ export function runStep11FootprintRollup(inputs: Step11Inputs): Step11Outputs {
         phase2VerticalM2,
         totalM2: phase2HorizontalM2 + phase2VerticalM2,
       },
+      conventionalRackedM2: conventionalRacked,
+      automationSwapped,
+      automationSavingsM2: automationSavings,
     },
     structural: {
       staticSlabUdlTPerM2,

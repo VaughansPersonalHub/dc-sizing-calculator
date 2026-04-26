@@ -239,6 +239,48 @@ describe('Step 12 — Automation Override', () => {
     expect(out.step12).toBeNull();
   });
 
+  it('Step 11 GFA swaps conventional storage for automated footprint when config present', () => {
+    // Build a SKU set that lands in shelf storage (each-pick on small cube)
+    // so AutoStore's grid replaces it. Conventional GFA should drop after
+    // the swap because AutoStore is denser than shelf storage.
+    const skus = [];
+    for (let i = 0; i < 30; i++) {
+      skus.push(
+        mkSku(`S${i}`, 60, {
+          unitCubeCm3: 1000,
+          channelMix: { retailB2bPct: 0, ecomDtcPct: 1, marketplacePct: 0 },
+        })
+      );
+    }
+    const baseline = runPipeline({ skus, ...baseInputs });
+    const automated = runPipeline({
+      skus,
+      ...baseInputs,
+      automationConfig: {
+        system_id: 'autostore_grid',
+        stackHeight: 12,
+        sizeToThroughputTarget: true,
+        packingEfficiency: 0.82,
+        motherChildMode: false,
+      },
+    });
+    expect(baseline.step11.rollup.automationSwapped).toBe(false);
+    expect(automated.step11.rollup.automationSwapped).toBe(true);
+    expect(automated.step11.rollup.conventionalRackedM2).toBeCloseTo(
+      baseline.step11.rollup.conventionalRackedM2,
+      1
+    );
+    // Automation swap must be reflected in GFA — same engagement, two
+    // different building footprints.
+    expect(automated.step11.rollup.buildingFootprintGfaM2).not.toBeCloseTo(
+      baseline.step11.rollup.buildingFootprintGfaM2,
+      0
+    );
+    // AutoStore is much denser than shelf storage at the same item count,
+    // so we expect savings (positive number).
+    expect(automated.step11.rollup.automationSavingsM2).toBeGreaterThan(0);
+  });
+
   it('AutoStore vs HaiPick ACR replace different conventional zones', () => {
     // Build SKUs that produce both shelf + CLS volume so each path replaces
     // different conventional area.

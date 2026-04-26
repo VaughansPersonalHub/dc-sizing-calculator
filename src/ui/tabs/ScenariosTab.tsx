@@ -23,6 +23,9 @@ export function ScenariosTab() {
   const tornadoProgress = useEngineStore((s) => s.tornadoProgress);
   const lastTornado = useEngineStore((s) => s.lastTornado) as TornadoResult | null;
 
+  const automationLibrary = useDataStore((s) => s.libraries.automation);
+  const [automationSystemId, setAutomationSystemId] = useState<string>('');
+
   const [error, setError] = useState<string | null>(null);
   const [progressLabel, setProgressLabel] = useState<string>('');
   const [tornadoMetric, setTornadoMetric] = useState<TornadoMetric>('footprint');
@@ -43,6 +46,14 @@ export function ScenariosTab() {
     try {
       await runEngineForEngagement({
         engagementId: activeEngagementId,
+        automationConfig: automationSystemId
+          ? {
+              system_id: automationSystemId,
+              sizeToThroughputTarget: true,
+              packingEfficiency: 0.82,
+              motherChildMode: automationSystemId === 'pallet_shuttle_mother_child',
+            }
+          : undefined,
         onProgress: (_step, _total, label) => setProgressLabel(label),
       });
     } catch (err) {
@@ -100,7 +111,7 @@ export function ScenariosTab() {
       )}
 
       <div className="rounded-md border border-border bg-card p-5 mt-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             type="button"
             disabled={!canRun}
@@ -114,6 +125,24 @@ export function ScenariosTab() {
             )}
             Run engine on baseline
           </button>
+
+          <label className="text-xs flex items-center gap-1.5">
+            <span className="text-muted-foreground">Automation:</span>
+            <select
+              className="text-xs bg-background border border-border rounded-md px-2 py-1"
+              value={automationSystemId}
+              onChange={(e) => setAutomationSystemId(e.target.value)}
+              disabled={status === 'running'}
+            >
+              <option value="">Conventional (none)</option>
+              {automationLibrary.map((a) => (
+                <option key={a.system_id} value={a.system_id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <div className="text-xs text-muted-foreground">
             {skuCount.toLocaleString()} SKUs · status {status}
             {status === 'running' && progress.total > 0 && (
@@ -273,6 +302,21 @@ interface EngineResultShape {
     };
     warnings: string[];
   };
+  step12: {
+    systemId: string;
+    category: string;
+    replacedZoneArea: number;
+    replacedFootprintDelta: number;
+    robotCount: number;
+    portCount: number;
+    throughputCapacityPerHour: number;
+    requiredPeakPerHour: number;
+    meetsThroughput: boolean;
+    frontEndDepthM: number;
+    frontEndAreaM2: number;
+    estimatedKva: number;
+    warnings: string[];
+  } | null;
   step11: {
     rollup: {
       operationalM2: number;
@@ -283,6 +327,9 @@ interface EngineResultShape {
       siteCoverageM2: number;
       siteAreaM2: number;
       softSpace: { phase2HorizontalM2: number; phase2VerticalM2: number; totalM2: number };
+      conventionalRackedM2: number;
+      automationSwapped: boolean;
+      automationSavingsM2: number;
     };
     structural: {
       staticSlabUdlTPerM2: number;
@@ -415,7 +462,25 @@ function ResultSummary({ result }: { result: EngineResultShape }) {
           <Stat label="Canopy" v={`${result.step11.rollup.canopyAreaM2.toFixed(0)} m² ${result.step11.rollup.canopyCountedInCoverage ? '(counted)' : '(exempt)'}`} />
           <Stat label="Site area" v={`${result.step11.rollup.siteAreaM2.toFixed(0)} m²`} />
           <Stat label="Soft-space" v={`${result.step11.rollup.softSpace.totalM2.toFixed(0)} m²`} />
+          {result.step11.rollup.automationSwapped && (
+            <Stat label="Auto. savings" v={`${result.step11.rollup.automationSavingsM2.toFixed(0)} m²`} />
+          )}
         </Card>
+
+        {result.step12 && (
+          <Card title="Step 12 · Automation override">
+            <Stat label="System" v={result.step12.systemId} />
+            <Stat label="Category" v={result.step12.category} />
+            <Stat label="Robots" v={result.step12.robotCount} />
+            {result.step12.portCount > 0 && <Stat label="Ports" v={result.step12.portCount} />}
+            <Stat label="Throughput" v={`${result.step12.throughputCapacityPerHour.toFixed(0)} / hr`} />
+            <Stat label="Required peak" v={`${result.step12.requiredPeakPerHour.toFixed(0)} / hr`} />
+            <Stat label="Meets peak" v={result.step12.meetsThroughput ? '✓' : '✗'} />
+            <Stat label="Auto. zone" v={`${result.step12.replacedZoneArea.toFixed(0)} m²`} />
+            <Stat label="Front-end" v={`${result.step12.frontEndAreaM2.toFixed(0)} m²`} />
+            <Stat label="kVA" v={result.step12.estimatedKva.toFixed(0)} />
+          </Card>
+        )}
 
         <Card title="Step 11 · Structural">
           <Stat label="Slab" v={result.feasibility.slabOk ? '✓ ok' : '✗ overload'} />

@@ -61,6 +61,9 @@ export interface Step12Outputs {
   meetsThroughput: boolean;
   /** Front-end induction + port-area depth (m). */
   frontEndDepthM: number;
+  /** Front-end area (m²) — depth × √(replacedZoneArea) as a planning proxy.
+   *  Step 11 adds this to the automated zone when computing GFA. */
+  frontEndAreaM2: number;
   /** kVA budget for the system (rough planning number). */
   estimatedKva: number;
   warnings: string[];
@@ -180,6 +183,7 @@ export function runStep12Automation(inputs: Step12Inputs): Step12Outputs {
   const replacedFootprintDelta = conventionalArea - replacedZoneArea;
 
   const frontEndDepthM = cfg.frontEndDepthM ?? FRONT_END_DEPTH_DEFAULTS[sys.category];
+  const frontEndAreaM2 = frontEndDepthM * Math.sqrt(Math.max(0, replacedZoneArea));
   const estimatedKva = robotCount * KVA_PER_ROBOT[sys.category];
 
   if (cfg.packingEfficiency < 0.5 || cfg.packingEfficiency > 1) {
@@ -198,6 +202,7 @@ export function runStep12Automation(inputs: Step12Inputs): Step12Outputs {
     requiredPeakPerHour,
     meetsThroughput: throughputCapacity >= requiredPeakPerHour,
     frontEndDepthM,
+    frontEndAreaM2,
     estimatedKva,
     warnings,
   };
