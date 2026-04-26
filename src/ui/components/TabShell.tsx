@@ -21,6 +21,8 @@ import {
   SHORTCUT_SHOW_HELP_EVENT,
 } from '../hooks/useKeyboardShortcuts';
 import { HelpDialog } from './HelpDialog';
+import { IntroTour } from './IntroTour';
+import { hasSeenTour } from '../help/tour-steps';
 import { Tooltip } from './Tooltip';
 
 import { EngagementsTab } from '../tabs/EngagementsTab';
@@ -56,6 +58,17 @@ export function TabShell() {
   const skuCount = useDataStore((s) => s.skuCount);
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+
+  // Phase 10.4 — auto-open the intro tour on first visit, after the
+  // initial render. Subsequent visits are gated by localStorage.
+  useEffect(() => {
+    if (!hasSeenTour()) {
+      const id = window.setTimeout(() => setTourOpen(true), 400);
+      return () => window.clearTimeout(id);
+    }
+    return undefined;
+  }, []);
 
   // Keep store.activeTab in sync with router path
   useEffect(() => {
@@ -171,7 +184,15 @@ export function TabShell() {
         </main>
       </div>
 
-      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <HelpDialog
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onReplayTour={() => {
+          setHelpOpen(false);
+          setTourOpen(true);
+        }}
+      />
+      <IntroTour open={tourOpen} onClose={() => setTourOpen(false)} />
     </div>
   );
 }

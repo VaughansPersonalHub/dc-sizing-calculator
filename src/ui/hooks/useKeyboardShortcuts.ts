@@ -68,19 +68,18 @@ export function useKeyboardShortcuts(): void {
         }
       }
 
-      // "?" opens the help dialog. Always allowed even with a dialog open
-      // (idempotent), and intentionally before the dialog-open guard so a
-      // user can toggle help from anywhere.
+      // When a modal dialog is open, defer all shortcuts to the dialog so
+      // we don't fire layout-level handlers (or stack a second modal) while
+      // the user is interacting with one.
+      if (isModalDialogOpen()) return;
+
+      // "?" opens the help dialog. Only valid when no other modal is open
+      // (so we don't stack HelpDialog over IntroTour, etc.).
       if (e.key === '?') {
         e.preventDefault();
         document.dispatchEvent(new CustomEvent(SHORTCUT_SHOW_HELP_EVENT));
         return;
       }
-
-      // When a modal dialog is open, defer Esc / R / T to the dialog so we
-      // don't fire layout-level handlers while the user is interacting with
-      // a modal.
-      if (isModalDialogOpen()) return;
 
       const k = e.key.toLowerCase();
       if (k === 'r') {

@@ -124,7 +124,7 @@ describe('Phase 9 — useKeyboardShortcuts', () => {
     document.body.removeChild(modal);
   });
 
-  it('"?" still works when a modal dialog is open (so help is reachable)', () => {
+  it('"?" is also deferred when a modal dialog is open (no second modal stacking)', () => {
     renderHook(() => useKeyboardShortcuts(), { wrapper });
     const modal = document.createElement('div');
     modal.setAttribute('role', 'dialog');
@@ -132,7 +132,7 @@ describe('Phase 9 — useKeyboardShortcuts', () => {
     document.body.appendChild(modal);
 
     dispatchKey('?');
-    expect(helpSpy).toHaveBeenCalledTimes(1);
+    expect(helpSpy).not.toHaveBeenCalled();
 
     document.body.removeChild(modal);
   });

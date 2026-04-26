@@ -9,7 +9,16 @@
 // extra <Section> blocks here pulling from src/ui/help/content.ts.
 
 import { useEffect, useRef, type ComponentType } from 'react';
-import { X, Keyboard, Map as MapIcon, BookOpen, Cpu, AlertTriangle, FileText } from 'lucide-react';
+import {
+  X,
+  Keyboard,
+  Map as MapIcon,
+  BookOpen,
+  Cpu,
+  AlertTriangle,
+  FileText,
+  Sparkles,
+} from 'lucide-react';
 import { KEYBOARD_SHORTCUTS, TAB_MAP, GLOSSARY } from '../help/content';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
 import { CITATIONS } from '../help/citations';
@@ -18,9 +27,11 @@ import { StepExplainerCard } from './StepExplainer';
 interface HelpDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Optional — if provided, a "Replay intro tour" button appears at the top. */
+  onReplayTour?: () => void;
 }
 
-export function HelpDialog({ open, onClose }: HelpDialogProps) {
+export function HelpDialog({ open, onClose, onReplayTour }: HelpDialogProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -71,6 +82,17 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
         </div>
 
         <div className="px-6 py-5 space-y-8 text-sm">
+          {onReplayTour && (
+            <button
+              type="button"
+              onClick={onReplayTour}
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-scc-gold/40 bg-scc-gold/5 hover:bg-scc-gold/10 text-foreground text-xs font-medium"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-scc-gold" />
+              Replay the 7-step intro tour
+            </button>
+          )}
+
           <Section icon={Keyboard} title="Keyboard shortcuts">
             <ul className="space-y-1.5">
               {KEYBOARD_SHORTCUTS.map((s) => (
