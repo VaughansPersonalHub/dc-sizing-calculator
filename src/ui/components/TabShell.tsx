@@ -22,6 +22,7 @@ import {
 } from '../hooks/useKeyboardShortcuts';
 import { HelpDialog } from './HelpDialog';
 import { IntroTour } from './IntroTour';
+import { AssumptionsDrawer } from './AssumptionsDrawer';
 import { hasSeenTour } from '../help/tour-steps';
 import { Tooltip } from './Tooltip';
 
@@ -183,6 +184,8 @@ export function TabShell() {
           </Routes>
         </main>
       </div>
+
+      <AssumptionsDrawer onShowHelp={() => setHelpOpen(true)} />
 
       <HelpDialog
         open={helpOpen}
