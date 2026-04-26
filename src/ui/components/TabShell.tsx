@@ -10,6 +10,7 @@ import {
   LayoutPanelLeft,
   Package,
   HelpCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { useUIStore, type TabId } from '../../stores';
 import { useEngagementStore } from '../../stores/engagement.store';
@@ -23,8 +24,10 @@ import {
 import { HelpDialog } from './HelpDialog';
 import { IntroTour } from './IntroTour';
 import { AssumptionsDrawer } from './AssumptionsDrawer';
+import { CommentsPanel } from './CommentsPanel';
 import { hasSeenTour } from '../help/tour-steps';
 import { Tooltip } from './Tooltip';
+import { commentSummary } from '../../utils/comments';
 
 import { EngagementsTab } from '../tabs/EngagementsTab';
 import { InputsTab } from '../tabs/InputsTab';
@@ -60,6 +63,22 @@ export function TabShell() {
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsBumper, setCommentsBumper] = useState(0);
+
+  // Refresh the comment-count chip whenever the panel closes — writes
+  // happen in the panel; the count is read from localStorage on
+  // demand, so we just bump a counter on close to force a re-read.
+  function closeComments() {
+    setCommentsOpen(false);
+    setCommentsBumper((n) => n + 1);
+  }
+
+  const commentsTotals = activeEngagementId
+    ? commentSummary(activeEngagementId)
+    : { total: 0, open: 0, resolved: 0, wontfix: 0 };
+  // The bumper is wired into the read above via render-time recomputation.
+  void commentsBumper;
 
   // Phase 10.4 — auto-open the intro tour on first visit, after the
   // initial render. Subsequent visits are gated by localStorage.
@@ -109,6 +128,43 @@ export function TabShell() {
           engagementId={activeEngagementId}
           skuCount={skuCount}
         />
+        <Tooltip
+          content={
+            activeEngagementId ? (
+              <span>
+                Reviewer comments — {commentsTotals.open} open, {commentsTotals.resolved}{' '}
+                resolved, {commentsTotals.wontfix} won&apos;t-fix.
+              </span>
+            ) : (
+              <span>Comments require an open engagement.</span>
+            )
+          }
+          side="bottom"
+        >
+          <button
+            type="button"
+            onClick={() => setCommentsOpen(true)}
+            disabled={!activeEngagementId}
+            aria-label="Open reviewer comments"
+            className={cn(
+              'relative p-1.5 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+              activeEngagementId
+                ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                : 'text-muted-foreground/40 cursor-not-allowed'
+            )}
+          >
+            <MessageSquare className="h-4 w-4" />
+            {commentsTotals.open > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[14px] h-3.5 px-1 rounded-full bg-amber-500 text-[9px] font-bold text-white"
+              >
+                {commentsTotals.open > 99 ? '99+' : commentsTotals.open}
+              </span>
+            )}
+          </button>
+        </Tooltip>
+
         <Tooltip
           content={
             <span>
@@ -186,6 +242,8 @@ export function TabShell() {
       </div>
 
       <AssumptionsDrawer onShowHelp={() => setHelpOpen(true)} />
+
+      <CommentsPanel open={commentsOpen} onClose={closeComments} />
 
       <HelpDialog
         open={helpOpen}
