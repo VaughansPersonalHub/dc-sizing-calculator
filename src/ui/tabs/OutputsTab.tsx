@@ -15,6 +15,7 @@ import {
   FileType,
   Layers,
   Upload,
+  ListChecks,
 } from 'lucide-react';
 import { useEngineStore } from '../../stores/engine.store';
 import { useEngagementStore } from '../../stores/engagement.store';
@@ -29,6 +30,7 @@ import {
 import { triggerDownload, fileBaseFromName } from '../../exports/download';
 import { Tooltip } from '../components/Tooltip';
 import { NarrativeCard } from '../components/NarrativeCard';
+import { ReviewerChecklist } from '../components/ReviewerChecklist';
 import type { NarrativeInput } from '../help/narrative';
 import { cn } from '../../utils/cn';
 
@@ -46,6 +48,7 @@ export function OutputsTab() {
   const [pdfBuilding, setPdfBuilding] = useState(false);
   const [pptBuilding, setPptBuilding] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const fileBase = fileBaseFromName(engagement?.name);
@@ -153,9 +156,30 @@ export function OutputsTab() {
     <div className="p-6 max-w-5xl">
       <div className="flex items-baseline justify-between mb-1">
         <h2 className="text-2xl font-semibold tracking-tight">Outputs</h2>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Phase 8 · export panel
-        </span>
+        <div className="flex items-center gap-2">
+          <Tooltip
+            content={
+              <span>
+                10-item gate before sharing the engagement with a reviewer.
+                Half of the items auto-pass when conditions are met; four are
+                manual eyeball-and-tick checks.
+              </span>
+            }
+            side="bottom"
+          >
+            <button
+              type="button"
+              onClick={() => setChecklistOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-card hover:bg-accent text-xs font-medium"
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              Pre-flight checklist
+            </button>
+          </Tooltip>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Phase 8 · export panel
+          </span>
+        </div>
       </div>
       <p className="text-sm text-muted-foreground mb-5">
         Download artefacts derived from the latest engine run and ops
@@ -268,6 +292,8 @@ export function OutputsTab() {
           </Banner>
         </div>
       )}
+
+      <ReviewerChecklist open={checklistOpen} onClose={() => setChecklistOpen(false)} />
     </div>
   );
 }
