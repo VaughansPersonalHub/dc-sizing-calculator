@@ -126,6 +126,11 @@ export function LibraryTable<T extends object, K extends string | number>({
 
   const allColumns = useMemo(() => [...columns, actionColumn], [columns, actionColumn]);
 
+  // useReactTable returns helper functions (getHeaderGroups / getRowModel
+  // etc.) that React Compiler can't memoize — but TanStack manages
+  // identity internally via its own store, so re-rendering on each call
+  // is correct. The "incompatible-library" warning is informational only.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: rows,
     columns: allColumns,

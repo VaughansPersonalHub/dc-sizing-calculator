@@ -21,10 +21,6 @@ import { useEngagementStore } from '../../stores/engagement.store';
 import { db } from '../../db/schema';
 import type { PipelineOutputs } from '../../engine/pipeline';
 import type { TornadoResult } from '../../engine/tornado';
-import {
-  buildScheduleOfAreasWorkbook,
-  workbookToArrayBuffer,
-} from '../../exports/schedule-of-areas';
 import { buildAssumptionsCsv } from '../../exports/assumptions-csv';
 import {
   downloadSccSnapshot,
@@ -43,6 +39,7 @@ export function OutputsTab() {
     return s.availableEngagements.find((e) => e.id === id) ?? null;
   });
   const regionProfile = useEngagementStore((s) => s.regionProfile);
+  const [scheduleBuilding, setScheduleBuilding] = useState(false);
   const [pdfBuilding, setPdfBuilding] = useState(false);
   const [pptBuilding, setPptBuilding] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -52,20 +49,28 @@ export function OutputsTab() {
   const engagementName = engagement?.name;
   const region = regionProfile ?? undefined;
 
-  const downloadSchedule = () => {
+  const downloadSchedule = async () => {
     if (!lastResult) return;
-    const wb = buildScheduleOfAreasWorkbook({
-      result: lastResult,
-      engagementName,
-      regionProfile: region,
-    });
-    const buf = workbookToArrayBuffer(wb);
-    triggerDownload(
-      new Blob([buf], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }),
-      `${fileBase}-schedule-of-areas.xlsx`
-    );
+    setScheduleBuilding(true);
+    try {
+      // SheetJS is ~300 KB — dynamic-import keeps it out of the entry chunk.
+      const { buildScheduleOfAreasWorkbook, workbookToArrayBuffer } =
+        await import('../../exports/schedule-of-areas');
+      const wb = buildScheduleOfAreasWorkbook({
+        result: lastResult,
+        engagementName,
+        regionProfile: region,
+      });
+      const buf = workbookToArrayBuffer(wb);
+      triggerDownload(
+        new Blob([buf], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+        `${fileBase}-schedule-of-areas.xlsx`
+      );
+    } finally {
+      setScheduleBuilding(false);
+    }
   };
 
   const downloadAssumptions = async () => {
@@ -178,8 +183,11 @@ export function OutputsTab() {
           title="Schedule of Areas (Excel)"
           description="Multi-sheet workbook: summary, storage zones, labour, MHE fleet, dock schedule, support areas, footprint roll-up, automation (when applied), feasibility."
           phase="Chunk 1"
-          disabled={!lastResult}
-          onClick={downloadSchedule}
+          disabled={!lastResult || scheduleBuilding}
+          buttonLabel={scheduleBuilding ? 'Building…' : 'Download'}
+          onClick={() => {
+            void downloadSchedule();
+          }}
         />
 
         <ExportCard

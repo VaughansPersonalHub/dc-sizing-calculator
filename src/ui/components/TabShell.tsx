@@ -14,6 +14,7 @@ import { useUIStore, type TabId } from '../../stores';
 import { useEngagementStore } from '../../stores/engagement.store';
 import { useDataStore } from '../../stores/data.store';
 import { cn } from '../../utils/cn';
+import { ErrorBoundary } from './ErrorBoundary';
 
 import { EngagementsTab } from '../tabs/EngagementsTab';
 import { InputsTab } from '../tabs/InputsTab';
@@ -100,13 +101,34 @@ export function TabShell() {
         <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Navigate to="/engagements" replace />} />
-            <Route path="/engagements" element={<EngagementsTab />} />
-            <Route path="/inputs" element={<InputsTab />} />
-            <Route path="/reference" element={<ReferenceTab />} />
-            <Route path="/design-rules" element={<DesignRulesTab />} />
-            <Route path="/scenarios" element={<ScenariosTab />} />
-            <Route path="/outputs" element={<OutputsTab />} />
-            <Route path="/layout" element={<LayoutTab />} />
+            <Route
+              path="/engagements"
+              element={<ErrorBoundary scope="the Engagements tab" resetKey={location.pathname}><EngagementsTab /></ErrorBoundary>}
+            />
+            <Route
+              path="/inputs"
+              element={<ErrorBoundary scope="the Inputs tab" resetKey={location.pathname}><InputsTab /></ErrorBoundary>}
+            />
+            <Route
+              path="/reference"
+              element={<ErrorBoundary scope="the Reference tab" resetKey={location.pathname}><ReferenceTab /></ErrorBoundary>}
+            />
+            <Route
+              path="/design-rules"
+              element={<ErrorBoundary scope="the Design Rules tab" resetKey={location.pathname}><DesignRulesTab /></ErrorBoundary>}
+            />
+            <Route
+              path="/scenarios"
+              element={<ErrorBoundary scope="the Scenarios tab" resetKey={location.pathname}><ScenariosTab /></ErrorBoundary>}
+            />
+            <Route
+              path="/outputs"
+              element={<ErrorBoundary scope="the Outputs tab" resetKey={location.pathname}><OutputsTab /></ErrorBoundary>}
+            />
+            <Route
+              path="/layout"
+              element={<ErrorBoundary scope="the Layout tab" resetKey={location.pathname}><LayoutTab /></ErrorBoundary>}
+            />
             <Route path="*" element={<Navigate to="/engagements" replace />} />
           </Routes>
         </main>
