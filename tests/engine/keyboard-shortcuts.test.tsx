@@ -8,6 +8,7 @@ import {
   SHORTCUT_RUN_ENGINE_EVENT,
   SHORTCUT_RUN_TORNADO_EVENT,
   SHORTCUT_CLEAR_SELECTION_EVENT,
+  SHORTCUT_SHOW_HELP_EVENT,
 } from '../../src/ui/hooks/useKeyboardShortcuts';
 
 function dispatchKey(key: string, target: EventTarget = document.body): void {
@@ -29,20 +30,24 @@ describe('Phase 9 — useKeyboardShortcuts', () => {
   let runEngineSpy: ReturnType<typeof vi.fn>;
   let runTornadoSpy: ReturnType<typeof vi.fn>;
   let clearSpy: ReturnType<typeof vi.fn>;
+  let helpSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     runEngineSpy = vi.fn();
     runTornadoSpy = vi.fn();
     clearSpy = vi.fn();
+    helpSpy = vi.fn();
     document.addEventListener(SHORTCUT_RUN_ENGINE_EVENT, runEngineSpy);
     document.addEventListener(SHORTCUT_RUN_TORNADO_EVENT, runTornadoSpy);
     document.addEventListener(SHORTCUT_CLEAR_SELECTION_EVENT, clearSpy);
+    document.addEventListener(SHORTCUT_SHOW_HELP_EVENT, helpSpy);
   });
 
   afterEach(() => {
     document.removeEventListener(SHORTCUT_RUN_ENGINE_EVENT, runEngineSpy);
     document.removeEventListener(SHORTCUT_RUN_TORNADO_EVENT, runTornadoSpy);
     document.removeEventListener(SHORTCUT_CLEAR_SELECTION_EVENT, clearSpy);
+    document.removeEventListener(SHORTCUT_SHOW_HELP_EVENT, helpSpy);
   });
 
   it('R key dispatches the run-engine event', () => {
@@ -91,5 +96,44 @@ describe('Phase 9 — useKeyboardShortcuts', () => {
     expect(runEngineSpy).not.toHaveBeenCalled();
     expect(runTornadoSpy).not.toHaveBeenCalled();
     expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it('"?" key dispatches the show-help event', () => {
+    renderHook(() => useKeyboardShortcuts(), { wrapper });
+    dispatchKey('?');
+    expect(helpSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('defers Esc / R / T to an open modal dialog (does not fire tab-level events)', () => {
+    renderHook(() => useKeyboardShortcuts(), { wrapper });
+
+    // Simulate a modal being open in the DOM.
+    const modal = document.createElement('div');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    document.body.appendChild(modal);
+
+    dispatchKey('r');
+    dispatchKey('t');
+    dispatchKey('Escape');
+
+    expect(runEngineSpy).not.toHaveBeenCalled();
+    expect(runTornadoSpy).not.toHaveBeenCalled();
+    expect(clearSpy).not.toHaveBeenCalled();
+
+    document.body.removeChild(modal);
+  });
+
+  it('"?" still works when a modal dialog is open (so help is reachable)', () => {
+    renderHook(() => useKeyboardShortcuts(), { wrapper });
+    const modal = document.createElement('div');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    document.body.appendChild(modal);
+
+    dispatchKey('?');
+    expect(helpSpy).toHaveBeenCalledTimes(1);
+
+    document.body.removeChild(modal);
   });
 });

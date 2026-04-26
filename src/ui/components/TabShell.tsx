@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import {
   Briefcase,
@@ -9,13 +9,19 @@ import {
   BarChart3,
   LayoutPanelLeft,
   Package,
+  HelpCircle,
 } from 'lucide-react';
 import { useUIStore, type TabId } from '../../stores';
 import { useEngagementStore } from '../../stores/engagement.store';
 import { useDataStore } from '../../stores/data.store';
 import { cn } from '../../utils/cn';
 import { ErrorBoundary } from './ErrorBoundary';
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import {
+  useKeyboardShortcuts,
+  SHORTCUT_SHOW_HELP_EVENT,
+} from '../hooks/useKeyboardShortcuts';
+import { HelpDialog } from './HelpDialog';
+import { Tooltip } from './Tooltip';
 
 import { EngagementsTab } from '../tabs/EngagementsTab';
 import { InputsTab } from '../tabs/InputsTab';
@@ -49,6 +55,7 @@ export function TabShell() {
   const activeEngagementId = useEngagementStore((s) => s.activeEngagementId);
   const skuCount = useDataStore((s) => s.skuCount);
   const location = useLocation();
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Keep store.activeTab in sync with router path
   useEffect(() => {
@@ -58,6 +65,15 @@ export function TabShell() {
 
   // Phase 9 — global keyboard shortcuts (1-7 nav, R/T runs, Esc clear).
   useKeyboardShortcuts();
+
+  // Phase 10.1 — "?" shortcut opens the Help & Reference modal.
+  useEffect(() => {
+    function onShow() {
+      setHelpOpen(true);
+    }
+    document.addEventListener(SHORTCUT_SHOW_HELP_EVENT, onShow);
+    return () => document.removeEventListener(SHORTCUT_SHOW_HELP_EVENT, onShow);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -79,6 +95,23 @@ export function TabShell() {
           engagementId={activeEngagementId}
           skuCount={skuCount}
         />
+        <Tooltip
+          content={
+            <span>
+              Help &amp; shortcuts (<kbd className="font-mono">?</kbd>)
+            </span>
+          }
+          side="bottom"
+        >
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            aria-label="Open help and reference"
+            className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </button>
+        </Tooltip>
       </header>
 
       <div className="flex flex-1 min-h-0">
@@ -137,6 +170,8 @@ export function TabShell() {
           </Routes>
         </main>
       </div>
+
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

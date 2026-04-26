@@ -18,6 +18,16 @@ import { useNavigate } from 'react-router-dom';
 export const SHORTCUT_RUN_ENGINE_EVENT = 'shortcut:run-engine';
 export const SHORTCUT_RUN_TORNADO_EVENT = 'shortcut:run-tornado';
 export const SHORTCUT_CLEAR_SELECTION_EVENT = 'shortcut:clear-selection';
+export const SHORTCUT_SHOW_HELP_EVENT = 'shortcut:show-help';
+
+/**
+ * Skip dispatching tab-level shortcuts (Esc → clear selection, R, T) when
+ * a modal dialog is open — the dialog handles its own keys, and we don't
+ * want Esc both closing the dialog AND clearing layout selection.
+ */
+function isModalDialogOpen(): boolean {
+  return document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
+}
 
 /** TabShell's TABS list, mirrored as an array for digit-based navigation. */
 const TAB_PATHS: string[] = [
@@ -57,6 +67,20 @@ export function useKeyboardShortcuts(): void {
           return;
         }
       }
+
+      // "?" opens the help dialog. Always allowed even with a dialog open
+      // (idempotent), and intentionally before the dialog-open guard so a
+      // user can toggle help from anywhere.
+      if (e.key === '?') {
+        e.preventDefault();
+        document.dispatchEvent(new CustomEvent(SHORTCUT_SHOW_HELP_EVENT));
+        return;
+      }
+
+      // When a modal dialog is open, defer Esc / R / T to the dialog so we
+      // don't fire layout-level handlers while the user is interacting with
+      // a modal.
+      if (isModalDialogOpen()) return;
 
       const k = e.key.toLowerCase();
       if (k === 'r') {
