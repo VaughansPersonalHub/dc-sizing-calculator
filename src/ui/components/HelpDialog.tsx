@@ -18,10 +18,12 @@ import {
   AlertTriangle,
   FileText,
   Sparkles,
+  Gauge,
 } from 'lucide-react';
 import { KEYBOARD_SHORTCUTS, TAB_MAP, GLOSSARY } from '../help/content';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
 import { CITATIONS } from '../help/citations';
+import { BENCHMARKS } from '../help/benchmarks';
 import { StepExplainerCard } from './StepExplainer';
 
 interface HelpDialogProps {
@@ -207,6 +209,62 @@ export function HelpDialog({ open, onClose, onReplayTour }: HelpDialogProps) {
                   {c.notes && (
                     <p className="mt-1 text-[11px] text-muted-foreground italic">
                       {c.notes}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Section>
+
+          <Section icon={Gauge} title="Calibration · industry benchmarks">
+            <p className="text-xs text-muted-foreground mb-3">
+              Bands the engine output is sanity-checked against on the Scenarios
+              tab. Each chip on the result cards shows whether your computed
+              value sits inside, near, or outside the typical industry range.
+              Outside-band values aren&apos;t necessarily wrong — they&apos;re a flag
+              for the reviewer to look at the inputs that drove them.
+            </p>
+            <ul className="space-y-3 text-xs">
+              {BENCHMARKS.map((b) => (
+                <li
+                  key={b.id}
+                  className="rounded-md border border-border bg-card p-3"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <h4 className="font-semibold">{b.label}</h4>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0 font-mono">
+                      {b.format ? b.format(b.band.low) : `${b.band.low} ${b.unit}`} –{' '}
+                      {b.format ? b.format(b.band.high) : `${b.band.high} ${b.unit}`}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed mb-1.5">
+                    {b.description}
+                  </p>
+                  <div className="text-[11px] leading-snug space-y-0.5">
+                    {b.sources.map((s) => (
+                      <div key={s.name}>
+                        <strong>{s.name}</strong>
+                        {' — '}
+                        {s.reference}
+                        {s.url && (
+                          <>
+                            {' '}
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-scc-gold hover:underline font-mono"
+                            >
+                              {s.url}
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {b.notes && (
+                    <p className="mt-1.5 text-[11px] text-muted-foreground italic">
+                      {b.notes}
                     </p>
                   )}
                 </li>
