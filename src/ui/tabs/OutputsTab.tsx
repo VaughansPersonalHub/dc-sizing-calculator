@@ -16,6 +16,7 @@ import {
   Layers,
   Upload,
   ListChecks,
+  Package,
 } from 'lucide-react';
 import { useEngineStore } from '../../stores/engine.store';
 import { useEngagementStore } from '../../stores/engagement.store';
@@ -47,6 +48,8 @@ export function OutputsTab() {
   const [scheduleBuilding, setScheduleBuilding] = useState(false);
   const [pdfBuilding, setPdfBuilding] = useState(false);
   const [pptBuilding, setPptBuilding] = useState(false);
+  const [packetBuilding, setPacketBuilding] = useState(false);
+  const [packetMessage, setPacketMessage] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -129,6 +132,38 @@ export function OutputsTab() {
     }
   };
 
+  const downloadPacket = async () => {
+    if (!lastResult || !activeEngagementId) return;
+    setPacketMessage(null);
+    setPacketBuilding(true);
+    try {
+      const opsProfile = await db.opsProfiles.get(activeEngagementId);
+      if (!opsProfile) {
+        setPacketMessage('Reviewer packet build failed — ops profile not found in Dexie.');
+        return;
+      }
+      const { buildReviewerPacket } = await import('../../exports/reviewer-packet');
+      const packet = await buildReviewerPacket({
+        result: lastResult,
+        tornado: lastTornado,
+        opsProfile,
+        engagementId: activeEngagementId,
+        engagementName,
+        regionProfile: region,
+      });
+      triggerDownload(packet.blob, `${fileBase}-reviewer-packet.zip`);
+      setPacketMessage(
+        `Reviewer packet built — ${packet.files.length} files, ${(packet.size / 1024).toFixed(0)} KB.`
+      );
+    } catch (err) {
+      setPacketMessage(
+        `Reviewer packet build failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      setPacketBuilding(false);
+    }
+  };
+
   const downloadScc = async () => {
     if (!activeEngagementId) return;
     await downloadSccSnapshot(activeEngagementId, fileBase);
@@ -197,6 +232,32 @@ export function OutputsTab() {
           tornado={lastTornado}
           className="mb-4"
         />
+      )}
+
+      {lastResult && activeEngagementId && (
+        <div className="mt-4 mb-4">
+          <ReviewerPacketCard
+            building={packetBuilding}
+            disabled={!lastResult || !activeEngagementId || packetBuilding}
+            onClick={() => {
+              void downloadPacket();
+            }}
+            tornadoIncluded={lastTornado !== null}
+          />
+          {packetMessage && (
+            <div className="mt-2 text-xs">
+              <span
+                className={cn(
+                  packetMessage.includes('failed')
+                    ? 'text-destructive'
+                    : 'text-emerald-700 dark:text-emerald-400'
+                )}
+              >
+                {packetMessage}
+              </span>
+            </div>
+          )}
+        </div>
       )}
 
       {!lastResult && (
@@ -294,6 +355,54 @@ export function OutputsTab() {
       )}
 
       <ReviewerChecklist open={checklistOpen} onClose={() => setChecklistOpen(false)} />
+    </div>
+  );
+}
+
+function ReviewerPacketCard({
+  building,
+  disabled,
+  onClick,
+  tornadoIncluded,
+}: {
+  building: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  tornadoIncluded: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-scc-gold/40 bg-scc-gold/5 p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Package className="h-4 w-4 text-scc-gold" />
+        <h3 className="text-sm font-semibold">Reviewer packet (zip)</h3>
+        <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+          One handoff artifact
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Bundles the Summary PDF, Schedule of Areas (Excel), Assumptions CSV,
+        Comments JSON, and .scc snapshot
+        {tornadoIncluded ? ' + Tornado PPT' : ' (no tornado.pptx — run the tornado first)'}{' '}
+        into a single zip with a README. Use as one handoff artifact for a
+        reviewer or client.
+      </p>
+      <Tooltip
+        content="Builds every Phase 8 export in parallel, then zips them via fflate. PDF rendering dominates elapsed time — typical 2-5 s for 5,000-SKU engagements."
+        side="top"
+      >
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          className={cn(
+            'inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border bg-scc-charcoal text-scc-gold border-scc-gold/40',
+            disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-scc-charcoal/90'
+          )}
+        >
+          <Package className="h-3.5 w-3.5" />
+          {building ? 'Building reviewer packet…' : 'Build & download reviewer packet'}
+        </button>
+      </Tooltip>
     </div>
   );
 }
