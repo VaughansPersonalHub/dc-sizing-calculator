@@ -18,7 +18,8 @@
 - Phase 4 (Engine Steps 7–11) — live. Step 7 labour applies the seven SPEC travel models (sqrt_area / sequential_hv / shuttle_cycle / crane_cycle / g2p_port / amr_fleet / zero), the availability factor method (NOT multiplicative summing), and Ramadan annual derate for MY/ID. Step 8 fleet sizes MHE per battery chemistry (lithium opportunity / lead-acid swap / fuel cell). Step 9 sizes inbound + outbound doors from blended container mix and bimodal staging (fast cross-dock vs QC/decant). Step 10 rolls up support areas including Surau (15m²/50 muslim staff + 6m² ablution), customs (bonded engagements only), halal uplift factor, ante-chamber, lithium kVA buffer. Step 11 totals operational + officeAndAmenities + canopy and runs four feasibility gates (clearHeight, seismic, slab UDL, envelope fit). Scenarios tab surfaces all 11 steps end-to-end.
 - Phase 5 (Layout Feasibility) — live. Pure-TS rectangle solver in `src/ui/layout-renderer/solver.ts` packs Step 5 storage zones (largest-first), the Step 9 dock strip + doors (south wall, inbound left / outbound right), and the Step 10 support cluster (east strip) against the building envelope. Overflow is detected per-rect and as a Step 11.overEnvelope mirror. Layout tab renders the result via D3 scales + React SVG with role-coloured fills, hatched-overflow overlay, layer toggles (storage / staging / docks / support / labels / scale / north), legend, and fit-status banner.
 - Phase 6 (Automation + Scenarios + Tornado) — live. Step 12 sizes the alternative automated storage path for AutoStore / Exotec / Geek+ / HAI / Quicktron / pallet shuttle (single + mother-child) / mini-load ASRS / pallet AGV / Libiao sorter; per-system density, robot count, port count, throughput capacity, kVA. Step 11 substitutes the conventional storage zones for the automated footprint + front-end induction area when AutomationConfig is supplied — GFA / siteArea / footprintGfa all reflect the swap, with `conventionalRackedM2` + `automationSavingsM2` exposed for side-by-side comparison. ScenarioRunner distributes work across a 4-worker pool (default), tagging each result with feasibility. Step 14 tornado generator emits 17 SPEC params × {low, high} = 34 variants, runs them in the pool, ranks by weighted delta (footprint + FTE), 30+ variants in <1.5s SPEC budget. Scenarios tab gains an automation system picker, "Run tornado" button + horizontal-bar tornado chart with footprint/FTE metric toggle and hatched-infeasibility overlay.
-- Next: Phase 7 Visio-grade SVG layout (Step 13) — polygon envelopes, 11-layer toggling, flow arrows, fire egress, SVG export.
+- Phase 7 (Visio-grade SVG Layout, Step 13) — live. EngineBuildingEnvelope grew `polygonVertices`, threaded through useLayoutResult to the solver. Solver runs ray-casting point-in-polygon clip on every placed rect (retro-overflow for any rect crossing the polygon), and emits per-zone aisle hints (orientation + count) sourced from Step 5. Renderer (`LayoutSvg.tsx`) is now a layered SVG with all 11 SPEC layers wired: column grid, storage (with aisle strokes), staging, docks (any wall), support, flow arrows (I/U/L/custom via `flow.ts`), fire egress (`egress.ts` 5 m grid + 45 m default threshold, polygon-aware), pedestrian, labels, scale, compass. Click-for-selection drives `SelectionPanel.tsx`. Infeasibility roll-up extends `LayoutResult.infeasibility` with shortfall numbers (slab UDL, clear height, seismic mass, envelope) and surfaces them both in a top-of-canvas red badge inside the SVG (so exports include it) and as a multi-flag FitBanner on the tab. Layout tab gets SVG + 2× PNG export buttons (`export.ts`) named after the active engagement.
+- Next: Phase 8 Outputs & Export — Excel (SheetJS), PDF (react-pdf), PPT tornado (pptxgenjs), .scc snapshot.
 
 ## Architecture (don't re-relitigate)
 
@@ -53,9 +54,12 @@ src/
     tabs/           7 tabs (Engagements, Inputs, Reference, Design Rules, Scenarios, Outputs, Layout)
     components/     TabShell, Hydration skeleton, etc.
       library/      LibraryTable (generic TanStack v8 editor) + per-library editors under editors/
-    layout-renderer/  Phase 5: simple rectangle solver (solver.ts, types.ts) +
-                      D3/React SVG (SimpleLayoutSvg.tsx, useLayoutResult.ts).
-                      Phase 7 swaps in polygons, flow arrows, fire egress.
+    layout-renderer/  Phase 7 Visio-grade renderer:
+                      solver.ts (rect packing + ray-cast polygon clip + aisle hints + Step-11 infeasibility roll-up)
+                      LayoutSvg.tsx (11 layered <g> components: grid / envelope / egress / zones+aisles / docks / flow / pedestrian / infeasibility badge / compass / scale)
+                      flow.ts (I/U/L/custom flow polylines), egress.ts (45 m contour),
+                      SelectionPanel.tsx (zone details), export.ts (SVG + 2× PNG download),
+                      types.ts, useLayoutResult.ts.
   libraries/        Seed data for the 6 reference libraries
   regional/         Per-region defaults for KR / TW / VN / MY / SG / ID
   schemas/          Zod schemas (validation at boundaries only)
@@ -207,6 +211,21 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] Automation swap: Step 11 substitutes conventional zones for automated footprint when AutomationConfig present; GFA reflects savings
 - [x] Scenarios tab automation picker drives engagement-level Step 12 selection
 - [x] `npm run build` + `npm run lint` green; bundle 684 KB / 210 KB gz
+
+## Phase 7 gate — verified
+
+- [x] Polygon envelope support: `EngineBuildingEnvelope.envelope.polygonVertices` threaded through `useLayoutResult.ts` to the solver; ray-casting point-in-polygon clips every placed rect (retro-overflow when corners stray outside)
+- [x] Per-zone aisle orientation: solver emits `ZoneAisleHint { orientation, count }` from Step 5; renderer draws thin-grey aisle strokes (matches_flow → vertical, perpendicular_to_flow → horizontal)
+- [x] Flexible dock placement: solver accepts `userDocks?` overrides and renders any wall (north / south / east / west)
+- [x] 11 toggleable layers wired in `LayoutSvg.tsx`: grid / storage / staging / docks / support / flow / fire_egress / pedestrian / labels / scale / north
+- [x] Flow arrows: I_flow / U_flow / L_flow / custom polylines via `flow.ts`, sky-blue inbound + orange outbound arrowhead markers; flow-pattern picker on the Layout tab
+- [x] Fire egress: `egress.ts` rasterises the envelope (5 m default cell, 45 m default threshold), polygon-aware skip for cells outside; renders failing cells as hatched-red overlay
+- [x] Hit-test + selection: clicking a rect calls `setSelectedZone`; `SelectionPanel.tsx` shows label / role / dimensions / area / origin / aisle hint / overflow flag
+- [x] SVG + PNG export: `export.ts` clones the SVG, serialises with xmlns + xml prologue, downloads `.svg` directly or 2× rasterises through canvas to `.png`; export buttons live on the Layout tab and embed the engagement name in the filename
+- [x] Infeasibility overlay polish: `LayoutResult.infeasibility` extended with shortfall numbers (envelope m², clear height m, slab t/m², seismic t); rendered both as in-SVG red badge (so exports include it) and as a multi-flag FitBanner above the diagram
+- [x] 18 new tests (polygon round-trip, polygon clip on L-shape, aisle hints, infeasibility roll-up, point-in-polygon helper, flow paths × 4 patterns, doorCentre, egress thresholding + polygon clip, serialiseSvg, infeasibility shortfalls); 159/159 total passing
+- [x] `npm run build` + `npm run lint` green; bundle 698 KB / 214 KB gz (+14 KB / +4 KB gz vs Phase 6)
+- [x] Layout solver < 10 ms per run; SPEC §14 budget for layout generation (200 ms) easily met
 
 ## What not to do
 

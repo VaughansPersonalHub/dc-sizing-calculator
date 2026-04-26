@@ -13,13 +13,14 @@
 // Flow / fire-egress / pedestrian arrived in Chunk 2; selection panel is
 // driven by useLayoutViewStore.selectedZoneId.
 
-import { useMemo } from 'react';
+import { useMemo, type Ref } from 'react';
 import { scaleLinear } from 'd3-scale';
 import type {
   LayoutResult,
   PlacedRect,
   PlacedDoor,
   LayoutZoneRole,
+  LayoutInfeasibility,
   ZoneAisleHint,
 } from './types';
 import { useLayoutViewStore } from '../../stores/layout-view.store';
@@ -30,6 +31,8 @@ interface Props {
   layout: LayoutResult;
   /** SVG width in CSS pixels. Height computed from the envelope aspect ratio. */
   pixelWidth?: number;
+  /** Forwarded to the <svg> element so the parent can run exports off it. */
+  svgRef?: Ref<SVGSVGElement>;
 }
 
 const ROLE_FILL: Record<LayoutZoneRole, string> = {
@@ -51,7 +54,7 @@ const SELECTED_STROKE = '#fde68a';
 const FLOW_INBOUND_COLOUR = '#0ea5e9';
 const FLOW_OUTBOUND_COLOUR = '#f97316';
 
-export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
+export function LayoutSvg({ layout, pixelWidth = 720, svgRef }: Props) {
   const visibleLayers = useLayoutViewStore((s) => s.visibleLayers);
   const flowPattern = useLayoutViewStore((s) => s.flowPattern);
   const selectedZoneId = useLayoutViewStore((s) => s.selectedZoneId);
@@ -99,6 +102,7 @@ export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
 
   return (
     <svg
+      ref={svgRef}
       width={viewWidth}
       height={viewHeight}
       className="block bg-slate-50 dark:bg-slate-950 rounded-md"
@@ -218,6 +222,10 @@ export function LayoutSvg({ layout, pixelWidth = 720 }: Props) {
       {/* Pedestrian walkway: dashed green strip along the
           dock-strip / storage interface — the main cross-traffic seam. */}
       {visibleLayers.pedestrian && <PedestrianLayer layout={layout} sx={sx} sy={sy} />}
+
+      {/* Infeasibility badge (always rendered when any flag fails — exports
+          must include it). Positioned top-left inside the envelope. */}
+      <InfeasibilityBadge x={48} y={48} infeasibility={layout.infeasibility} />
 
       {/* Compass + scale bar */}
       {visibleLayers.north && <CompassRose x={viewWidth - 48} y={48} />}
@@ -496,6 +504,69 @@ function PedestrianLayer({
         strokeDasharray="6 3"
         opacity={0.75}
       />
+    </g>
+  );
+}
+
+function InfeasibilityBadge({
+  x,
+  y,
+  infeasibility,
+}: {
+  x: number;
+  y: number;
+  infeasibility: LayoutInfeasibility;
+}) {
+  const lines: string[] = [];
+  if (infeasibility.envelopeOverflow) {
+    lines.push(`Envelope overflow: ${infeasibility.envelopeShortfallM2.toFixed(0)} m² short`);
+  }
+  if (infeasibility.clearHeightFail) {
+    const shortfallM = (infeasibility.requiredRackHeightMm - infeasibility.usableRackHeightMm) / 1000;
+    lines.push(`Clear height: ${shortfallM.toFixed(1)} m short`);
+  }
+  if (infeasibility.slabFail) {
+    const slabShort = infeasibility.staticSlabUdlTPerM2 - infeasibility.slabCapacityTPerM2;
+    lines.push(`Slab UDL: +${slabShort.toFixed(1)} t/m² over capacity`);
+  }
+  if (infeasibility.seismicFail) {
+    const seismicShort = infeasibility.seismicMassT - infeasibility.allowableSeismicMassT;
+    lines.push(`Seismic mass: +${seismicShort.toFixed(0)} t over allowable`);
+  }
+  if (lines.length === 0) return null;
+
+  const lineHeight = 14;
+  const padding = 8;
+  const boxWidth = 240;
+  const boxHeight = padding * 2 + lines.length * lineHeight + 14;
+  return (
+    <g transform={`translate(${x},${y})`} style={{ pointerEvents: 'none' }}>
+      <rect
+        x={0}
+        y={0}
+        width={boxWidth}
+        height={boxHeight}
+        rx={4}
+        ry={4}
+        fill="#dc2626"
+        fillOpacity={0.9}
+        stroke="#7f1d1d"
+        strokeWidth={1}
+      />
+      <text x={padding} y={padding + 11} fontSize={11} fontWeight={700} fill="white">
+        Infeasible — {lines.length} flag{lines.length === 1 ? '' : 's'}
+      </text>
+      {lines.map((l, i) => (
+        <text
+          key={i}
+          x={padding}
+          y={padding + 11 + 16 + i * lineHeight}
+          fontSize={10}
+          fill="white"
+        >
+          {l}
+        </text>
+      ))}
     </g>
   );
 }

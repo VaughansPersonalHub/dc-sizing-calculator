@@ -1,8 +1,11 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, Image as ImageIcon } from 'lucide-react';
 import { useLayoutResult } from '../layout-renderer/useLayoutResult';
 import { LayoutSvg } from '../layout-renderer/LayoutSvg';
 import { SelectionPanel } from '../layout-renderer/SelectionPanel';
+import { downloadSvg, downloadPng } from '../layout-renderer/export';
+import { useEngagementStore } from '../../stores/engagement.store';
 import {
   useLayoutViewStore,
   type LayerId,
@@ -37,6 +40,17 @@ export function LayoutTab() {
   const toggleLayer = useLayoutViewStore((s) => s.toggleLayer);
   const flowPattern = useLayoutViewStore((s) => s.flowPattern);
   const setFlowPattern = useLayoutViewStore((s) => s.setFlowPattern);
+  const engagementName = useEngagementStore((s) => {
+    const id = s.activeEngagementId;
+    if (!id) return null;
+    return s.availableEngagements.find((e) => e.id === id)?.name ?? null;
+  });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const exportFileBase = (engagementName ?? 'engagement')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '') || 'engagement';
 
   return (
     <div className="p-6 max-w-6xl">
@@ -66,7 +80,7 @@ export function LayoutTab() {
 
       {layout && buildingTemplate && (
         <>
-          <FitBanner overflowed={layout.overflowed} overflowAreaM2={layout.overflowAreaM2} />
+          <FitBanner layout={layout} />
 
           <div className="mt-3 grid grid-cols-[auto_1fr] gap-4">
             {/* Sidebar: layers / flow / stats / selection */}
@@ -131,7 +145,31 @@ export function LayoutTab() {
 
             {/* Diagram */}
             <div className="rounded-md border border-border bg-card p-3 overflow-auto">
-              <LayoutSvg layout={layout} />
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (svgRef.current) downloadSvg(svgRef.current, `${exportFileBase}-layout.svg`);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-sm border border-border hover:bg-accent"
+                >
+                  <Download className="h-3 w-3" />
+                  SVG
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (svgRef.current) {
+                      void downloadPng(svgRef.current, `${exportFileBase}-layout.png`);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-sm border border-border hover:bg-accent"
+                >
+                  <ImageIcon className="h-3 w-3" />
+                  PNG
+                </button>
+              </div>
+              <LayoutSvg layout={layout} svgRef={svgRef} />
               <Legend />
             </div>
           </div>
@@ -141,29 +179,46 @@ export function LayoutTab() {
   );
 }
 
-function FitBanner({
-  overflowed,
-  overflowAreaM2,
-}: {
-  overflowed: boolean;
-  overflowAreaM2: number;
-}) {
-  if (overflowed) {
+function FitBanner({ layout }: { layout: import('../layout-renderer/types').LayoutResult }) {
+  const { infeasibility, overflowAreaM2 } = layout;
+  const messages: string[] = [];
+  if (infeasibility.envelopeOverflow) {
+    messages.push(`Envelope overflows by ${overflowAreaM2.toFixed(0)} m²`);
+  }
+  if (infeasibility.clearHeightFail) {
+    const shortM = (infeasibility.requiredRackHeightMm - infeasibility.usableRackHeightMm) / 1000;
+    messages.push(`Clear height short by ${shortM.toFixed(1)} m (Step 4.5)`);
+  }
+  if (infeasibility.slabFail) {
+    const shortT = infeasibility.staticSlabUdlTPerM2 - infeasibility.slabCapacityTPerM2;
+    messages.push(`Slab UDL exceeds capacity by ${shortT.toFixed(1)} t/m²`);
+  }
+  if (infeasibility.seismicFail) {
+    const shortT = infeasibility.seismicMassT - infeasibility.allowableSeismicMassT;
+    messages.push(`Seismic mass exceeds allowable by ${shortT.toFixed(0)} t (Step 4.6)`);
+  }
+  if (messages.length === 0) {
     return (
-      <Banner kind="error">
-        <strong>Layout overflows the envelope</strong> by{' '}
-        {overflowAreaM2.toFixed(0)} m². Increase the building footprint, raise
-        levels, or downsize zones via the scenarios.
+      <Banner kind="success">
+        <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+        <span>
+          <strong>Feasible.</strong> Envelope, slab, clear height and seismic
+          checks all pass; storage + support clusters placed; dock doors
+          anchored.
+        </span>
       </Banner>
     );
   }
   return (
-    <Banner kind="success">
-      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-      <span>
-        <strong>Fits within the envelope.</strong> Storage + support clusters
-        placed; dock doors anchored to the south wall.
-      </span>
+    <Banner kind="error">
+      <div>
+        <strong>Infeasible — {messages.length} flag{messages.length === 1 ? '' : 's'}.</strong>
+        <ul className="mt-1 list-disc list-inside space-y-0.5">
+          {messages.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      </div>
     </Banner>
   );
 }

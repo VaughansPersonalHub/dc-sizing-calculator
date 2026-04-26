@@ -227,14 +227,23 @@ export function runLayoutSolver(inputs: SolverInputs): LayoutResult {
   }
 
   const flags = inputs.result.step11.feasibilityFlags;
+  const structural = inputs.result.step11.structural;
+  const step45 = inputs.result.step4_5;
+  const step46 = inputs.result.step4_6;
   const infeasibility = {
-    envelopeOverflow: overflowed || inputs.result.step11.structural.overEnvelope,
+    envelopeOverflow: overflowed || structural.overEnvelope,
     clearHeightFail: !flags.clearHeight,
     slabFail: !flags.slab,
     seismicFail: !flags.seismic,
     envelopeShortfallM2: overflowed
-      ? Math.max(overflowAreaM2, inputs.result.step11.structural.envelopeShortfallM2)
+      ? Math.max(overflowAreaM2, structural.envelopeShortfallM2)
       : 0,
+    requiredRackHeightMm: step45.requiredRackHeightMm,
+    usableRackHeightMm: step45.usableRackHeightMm,
+    staticSlabUdlTPerM2: structural.staticSlabUdlTPerM2,
+    slabCapacityTPerM2: structural.slabLoadingTPerM2,
+    seismicMassT: step46.seismicMassT,
+    allowableSeismicMassT: step46.allowableMassT,
   };
 
   void storageRegionDepth;

@@ -69,7 +69,9 @@ export type LayoutPolygon = { x: number; y: number }[] | null;
 
 /**
  * Cumulative infeasibility flags from Step 11 + the solver's polygon-clip.
- * Drives the Phase 7 infeasibility overlay on the renderer.
+ * Drives the Phase 7 infeasibility overlay on the renderer. Shortfall
+ * numbers are populated alongside each flag so the overlay can annotate
+ * "by how much" instead of just "fails".
  */
 export interface LayoutInfeasibility {
   /** GFA exceeds envelope area. */
@@ -82,6 +84,15 @@ export interface LayoutInfeasibility {
   seismicFail: boolean;
   /** m² shortfall when GFA exceeds envelope. */
   envelopeShortfallM2: number;
+  /** Step 4.5 detail — required and available rack height (mm). */
+  requiredRackHeightMm: number;
+  usableRackHeightMm: number;
+  /** Step 11 detail — static UDL imposed vs slab capacity (t/m²). */
+  staticSlabUdlTPerM2: number;
+  slabCapacityTPerM2: number;
+  /** Step 4.6 detail — seismic mass vs allowable (t). */
+  seismicMassT: number;
+  allowableSeismicMassT: number;
 }
 
 export interface LayoutResult {
