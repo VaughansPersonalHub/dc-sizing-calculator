@@ -292,12 +292,25 @@ export function ScenariosTab() {
               <div className="overflow-auto">
                 <TornadoChart tornado={lastTornado} metric={tornadoMetric} />
               </div>
-              <div className="mt-2 text-[10px] text-muted-foreground">
-                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#0ea5e9] mr-1" />
-                Low variant
-                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#f97316] ml-3 mr-1" />
-                High variant
-                <span className="ml-3">Hatched = infeasible</span>
+              <div className="mt-2 text-[10px] text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#0ea5e9]" />
+                  Low variant
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#f97316]" />
+                  High variant
+                </span>
+                <span>Hatched = infeasible</span>
+                <Tooltip
+                  content="Each bar carries a thin pill underlay that extends past its tip — that is the engine modeling uncertainty (default ±5% of the variant's delta). The bar value is what the engine returned; the pill is the band a sceptical reviewer should treat as plausible."
+                  side="top"
+                >
+                  <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted underline-offset-2">
+                    <span className="inline-block w-3 h-1 rounded-sm bg-[#0ea5e9] opacity-40" />
+                    ±5% modeling band
+                  </span>
+                </Tooltip>
               </div>
             </>
           )}

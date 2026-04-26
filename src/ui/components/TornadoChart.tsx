@@ -5,6 +5,12 @@
 // Custom SVG (no Recharts) — the layout is opinionated enough that
 // hand-rolled gives tighter control over hatched-infeasibility, label
 // placement, and centre-line zero crossing.
+//
+// Phase 10.6b — each bar carries a thin confidence-band underlay
+// representing engine modeling uncertainty (default ±5% of the
+// variant's delta). The band sits behind the bar with low opacity and
+// extends past the bar tip on the value-positive side, so a sceptical
+// reviewer sees that the delta is approximate, not exact.
 
 import { useMemo } from 'react';
 import type { TornadoResult } from '../../engine/tornado';
@@ -16,14 +22,20 @@ interface Props {
   metric: TornadoMetric;
   /** Number of rows to render. Defaults to all 17. */
   topN?: number;
+  /**
+   * Engine modeling uncertainty as a fraction of the variant's delta;
+   * drives the confidence-band underlay width on each bar. Default 0.05.
+   */
+  uncertaintyPct?: number;
 }
 
 const ROW_HEIGHT = 24;
 const ROW_GAP = 4;
 const LABEL_WIDTH = 220;
 const RIGHT_PAD = 60;
+const DEFAULT_UNCERTAINTY = 0.05;
 
-export function TornadoChart({ tornado, metric, topN }: Props) {
+export function TornadoChart({ tornado, metric, topN, uncertaintyPct = DEFAULT_UNCERTAINTY }: Props) {
   const rows = useMemo(() => {
     const sliced = topN ? tornado.rows.slice(0, topN) : tornado.rows;
     return sliced.map((r) => ({
@@ -106,6 +118,7 @@ export function TornadoChart({ tornado, metric, topN }: Props) {
               value={row.lowValue}
               colour="#0ea5e9"
               feasible={lowFeasible}
+              uncertaintyPct={uncertaintyPct}
             />
 
             {/* High bar */}
@@ -116,6 +129,7 @@ export function TornadoChart({ tornado, metric, topN }: Props) {
               value={row.highValue}
               colour="#f97316"
               feasible={highFeasible}
+              uncertaintyPct={uncertaintyPct}
             />
 
             {/* Right-side numeric annotation: bigger absolute swing wins */}
@@ -149,6 +163,7 @@ function Bar({
   value,
   colour,
   feasible,
+  uncertaintyPct,
 }: {
   y: number;
   valueToX: (v: number) => number;
@@ -156,11 +171,24 @@ function Bar({
   value: number;
   colour: string;
   feasible: boolean;
+  uncertaintyPct: number;
 }) {
   if (value === 0) return null;
   const xEnd = valueToX(value);
   const x = Math.min(centreX, xEnd);
   const w = Math.abs(xEnd - centreX);
+
+  // Confidence band — thin pill spanning value × (1 ± uncertaintyPct).
+  // Drawn above the bar at low opacity so it shows as a subtle visual
+  // reminder that the delta is approximate; extends past the bar tip
+  // on the value-side, making the modeling-uncertainty range obvious.
+  const u = Math.abs(value * uncertaintyPct);
+  const xLo = valueToX(value - Math.sign(value) * u);
+  const xHi = valueToX(value + Math.sign(value) * u);
+  const cbX = Math.min(xLo, xHi);
+  const cbW = Math.abs(xHi - xLo);
+  const cbY = y + ROW_HEIGHT / 2 - 1.5;
+
   return (
     <g>
       <rect
@@ -178,6 +206,17 @@ function Bar({
           width={w}
           height={ROW_HEIGHT - 4}
           fill="url(#tornado-hatch)"
+        />
+      )}
+      {uncertaintyPct > 0 && (
+        <rect
+          x={cbX}
+          y={cbY}
+          width={cbW}
+          height={3}
+          fill={colour}
+          opacity={0.4}
+          rx={1.5}
         />
       )}
     </g>

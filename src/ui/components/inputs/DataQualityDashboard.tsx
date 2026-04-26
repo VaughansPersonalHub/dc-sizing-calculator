@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   Loader2,
   ListChecks,
+  Info,
+  Gauge,
 } from 'lucide-react';
 import { useEngagementStore } from '../../../stores/engagement.store';
 import { useDataStore } from '../../../stores/data.store';
@@ -25,6 +27,10 @@ import { db } from '../../../db/schema';
 import { cn } from '../../../utils/cn';
 import { Tooltip } from '../Tooltip';
 import { InfoTip } from '../InfoTip';
+import {
+  computeCalibrationWarnings,
+  type CalibrationWarning,
+} from '../../help/calibration-warnings';
 
 interface FixToggles {
   clampNegativeDemand: boolean;
@@ -215,6 +221,8 @@ export function DataQualityDashboard() {
             )}
           </div>
 
+          <CalibrationPanel validation={validation} />
+
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-md border border-border bg-card p-4">
               <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -309,6 +317,66 @@ export function DataQualityDashboard() {
 
 function countByCode(v: ValidationSummary, code: string): number {
   return v.stats.codesByCount[code] ?? 0;
+}
+
+function CalibrationPanel({ validation }: { validation: ValidationSummary }) {
+  const warnings = computeCalibrationWarnings(validation);
+  const warnCount = warnings.filter((w) => w.severity === 'warn').length;
+  const infoCount = warnings.filter((w) => w.severity === 'info').length;
+
+  return (
+    <div className="rounded-md border border-border bg-card p-4 mb-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+        <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+          Calibration
+        </h4>
+        <InfoTip
+          content="Distributional checks over the SKU set as a whole — not individual rows. Looks for outlier groups, partial-history density, small-sample sizing, and other patterns that affect how confident a reviewer should be in the engine output."
+          side="right"
+        />
+        <div className="flex-1" />
+        <span className="text-[10px] text-muted-foreground">
+          {warnings.length === 0
+            ? 'No flags'
+            : `${warnCount} warn · ${infoCount} info`}
+        </span>
+      </div>
+
+      {warnings.length === 0 ? (
+        <p className="text-xs text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          SKU set passes distributional checks — outputs are within calibration range.
+        </p>
+      ) : (
+        <ul className="space-y-2 text-xs">
+          {warnings.map((w) => (
+            <CalibrationWarningRow key={w.id} warning={w} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function CalibrationWarningRow({ warning }: { warning: CalibrationWarning }) {
+  const Icon = warning.severity === 'warn' ? AlertTriangle : Info;
+  const colourClass =
+    warning.severity === 'warn'
+      ? 'text-amber-700 dark:text-amber-400'
+      : 'text-sky-700 dark:text-sky-400';
+  return (
+    <li className="flex items-start gap-2">
+      <Icon className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', colourClass)} />
+      <div className="flex-1 leading-snug">
+        <div className={cn('font-medium', colourClass)}>{warning.title}</div>
+        <div className="text-foreground/90 mt-0.5">{warning.detail}</div>
+        <div className="text-muted-foreground mt-0.5 italic">
+          → {warning.suggestedAction}
+        </div>
+      </div>
+    </li>
+  );
 }
 
 function FixToggle({
