@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { runPipeline } from '../../src/engine/pipeline';
-import { runLayoutSolver } from '../../src/layout-renderer/solver';
+import { runLayoutSolver } from '../../src/ui/layout-renderer/solver';
 import {
   OPS,
   PALLETS,

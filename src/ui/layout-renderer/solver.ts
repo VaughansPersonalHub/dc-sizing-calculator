@@ -20,8 +20,8 @@
 //   5. Anything that doesn't fit gets placed at an "overflow" anchor
 //      south-east of the envelope and flagged.
 
-import type { PipelineOutputs } from '../engine/pipeline';
-import type { EngineBuildingEnvelope } from '../engine/models';
+import type { PipelineOutputs } from '../../engine/pipeline';
+import type { EngineBuildingEnvelope } from '../../engine/models';
 import type { LayoutResult, PlacedRect, PlacedDoor, LayoutZoneRole } from './types';
 
 const DOCK_STRIP_DEPTH_M = 25;

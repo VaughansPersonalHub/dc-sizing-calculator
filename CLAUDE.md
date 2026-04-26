@@ -16,7 +16,8 @@
 - Phase 3 (Engine Core, Steps 0–6) — live. Pure-TS pipeline with mandatory gates 4.5 (clear height) and 4.6 (seismic mass) runs in a Web Worker via transferable Float32Array. Step 0 ValidationLayer ships every SPEC §7 code + auto-fix helpers. Pipeline runs 5 000 SKUs end-to-end in ~36 ms (SPEC budget 50 ms). UI trigger lives on the Scenarios tab — happy path renders feasibility + per-step summary cards.
 - Phase 2.5 (Data Quality Dashboard) — live. Surfaces Step 0 output (stats + per-code breakdown), exposes the four SPEC auto-fixes (clamp negatives, suppress zero-demand, cap CV, normalise channel mix), and gates the engine "Run" button behind an explicit Acknowledge. Acknowledgement is hash-locked to the current SKU set + halal flag — any CSV import or auto-fix application invalidates it.
 - Phase 4 (Engine Steps 7–11) — live. Step 7 labour applies the seven SPEC travel models (sqrt_area / sequential_hv / shuttle_cycle / crane_cycle / g2p_port / amr_fleet / zero), the availability factor method (NOT multiplicative summing), and Ramadan annual derate for MY/ID. Step 8 fleet sizes MHE per battery chemistry (lithium opportunity / lead-acid swap / fuel cell). Step 9 sizes inbound + outbound doors from blended container mix and bimodal staging (fast cross-dock vs QC/decant). Step 10 rolls up support areas including Surau (15m²/50 muslim staff + 6m² ablution), customs (bonded engagements only), halal uplift factor, ante-chamber, lithium kVA buffer. Step 11 totals operational + officeAndAmenities + canopy and runs four feasibility gates (clearHeight, seismic, slab UDL, envelope fit). Scenarios tab surfaces all 11 steps end-to-end.
-- Next: Phase 5 layout renderer (Step 13) + Phase 6 scenario engine + tornado (Step 14).
+- Phase 5 (Layout Feasibility) — live. Pure-TS rectangle solver in `src/layout-renderer/solver.ts` packs Step 5 storage zones (largest-first), the Step 9 dock strip + doors (south wall, inbound left / outbound right), and the Step 10 support cluster (east strip) against the building envelope. Overflow is detected per-rect and as a Step 11.overEnvelope mirror. Layout tab renders the result via D3 scales + React SVG with role-coloured fills, hatched-overflow overlay, layer toggles (storage / staging / docks / support / labels / scale / north), legend, and fit-status banner.
+- Next: Phase 6 scenario engine + tornado (Step 14) + automation overrides (Step 12).
 
 ## Architecture (don't re-relitigate)
 
@@ -47,7 +48,9 @@ src/
     tabs/           7 tabs (Engagements, Inputs, Reference, Design Rules, Scenarios, Outputs, Layout)
     components/     TabShell, Hydration skeleton, etc.
       library/      LibraryTable (generic TanStack v8 editor) + per-library editors under editors/
-    layout-renderer/  D3 + SVG (Phase 5 / 7)
+    layout-renderer/  Phase 5: simple rectangle solver (solver.ts, types.ts) +
+                      D3/React SVG (SimpleLayoutSvg.tsx, useLayoutResult.ts).
+                      Phase 7 swaps in polygons, flow arrows, fire egress.
   libraries/        Seed data for the 6 reference libraries
   regional/         Per-region defaults for KR / TW / VN / MY / SG / ID
   schemas/          Zod schemas (validation at boundaries only)
