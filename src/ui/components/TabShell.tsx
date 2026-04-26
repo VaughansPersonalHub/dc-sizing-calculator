@@ -15,6 +15,7 @@ import { useEngagementStore } from '../../stores/engagement.store';
 import { useDataStore } from '../../stores/data.store';
 import { cn } from '../../utils/cn';
 import { ErrorBoundary } from './ErrorBoundary';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 import { EngagementsTab } from '../tabs/EngagementsTab';
 import { InputsTab } from '../tabs/InputsTab';
@@ -54,6 +55,9 @@ export function TabShell() {
     const match = TABS.find((t) => location.pathname.startsWith(t.path));
     if (match && match.id !== activeTab) setActiveTab(match.id);
   }, [location.pathname, activeTab, setActiveTab]);
+
+  // Phase 9 — global keyboard shortcuts (1-7 nav, R/T runs, Esc clear).
+  useKeyboardShortcuts();
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">

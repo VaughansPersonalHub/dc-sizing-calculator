@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Download, Image as ImageIcon } from 'lucide-react';
 import { useLayoutResult } from '../layout-renderer/useLayoutResult';
@@ -11,6 +11,7 @@ import {
   type LayerId,
   type FlowPattern,
 } from '../../stores/layout-view.store';
+import { SHORTCUT_CLEAR_SELECTION_EVENT } from '../hooks/useKeyboardShortcuts';
 import { cn } from '../../utils/cn';
 
 const LAYERS: { id: LayerId; label: string }[] = [
@@ -40,6 +41,7 @@ export function LayoutTab() {
   const toggleLayer = useLayoutViewStore((s) => s.toggleLayer);
   const flowPattern = useLayoutViewStore((s) => s.flowPattern);
   const setFlowPattern = useLayoutViewStore((s) => s.setFlowPattern);
+  const setSelectedZone = useLayoutViewStore((s) => s.setSelectedZone);
   const engagementName = useEngagementStore((s) => {
     const id = s.activeEngagementId;
     if (!id) return null;
@@ -51,6 +53,15 @@ export function LayoutTab() {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '') || 'engagement';
+
+  // Phase 9 — Esc clears the selected zone.
+  useEffect(() => {
+    function clearSelection() {
+      setSelectedZone(null);
+    }
+    document.addEventListener(SHORTCUT_CLEAR_SELECTION_EVENT, clearSelection);
+    return () => document.removeEventListener(SHORTCUT_CLEAR_SELECTION_EVENT, clearSelection);
+  }, [setSelectedZone]);
 
   return (
     <div className="p-6 max-w-6xl">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Play, AlertTriangle, CheckCircle2, Loader2, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEngagementStore } from '../../stores/engagement.store';
@@ -8,6 +8,10 @@ import { runEngineForEngagement } from '../../engine/runner';
 import { runTornadoForEngagement } from '../../engine/tornadoRunner';
 import { TornadoChart, type TornadoMetric } from '../components/TornadoChart';
 import type { TornadoResult } from '../../engine/tornado';
+import {
+  SHORTCUT_RUN_ENGINE_EVENT,
+  SHORTCUT_RUN_TORNADO_EVENT,
+} from '../hooks/useKeyboardShortcuts';
 import { cn } from '../../utils/cn';
 
 export function ScenariosTab() {
@@ -75,6 +79,25 @@ export function ScenariosTab() {
       setError((err as Error).message);
     }
   }
+
+  // Phase 9 — keyboard shortcuts. R fires the engine, T fires the tornado;
+  // both ignored when the relevant guard rails (canRun / canRunTornado)
+  // aren't met so the shortcut never crashes.
+  useEffect(() => {
+    function onRunShortcut() {
+      if (canRun) void onRun();
+    }
+    function onTornadoShortcut() {
+      if (canRunTornado) void onRunTornado();
+    }
+    document.addEventListener(SHORTCUT_RUN_ENGINE_EVENT, onRunShortcut);
+    document.addEventListener(SHORTCUT_RUN_TORNADO_EVENT, onTornadoShortcut);
+    return () => {
+      document.removeEventListener(SHORTCUT_RUN_ENGINE_EVENT, onRunShortcut);
+      document.removeEventListener(SHORTCUT_RUN_TORNADO_EVENT, onTornadoShortcut);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canRun, canRunTornado, activeEngagementId, automationSystemId, lastResult]);
 
   return (
     <div className="p-6 max-w-5xl">
