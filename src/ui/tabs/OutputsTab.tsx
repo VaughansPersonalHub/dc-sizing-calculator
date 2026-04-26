@@ -5,9 +5,17 @@
 // Assumptions CSV. Chunks 2 + 3 add Summary PDF, PPT tornado, and the
 // .scc snapshot round-trip.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, FileSpreadsheet, FileText, FileType } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FileSpreadsheet,
+  FileText,
+  FileType,
+  Layers,
+  Upload,
+} from 'lucide-react';
 import { useEngineStore } from '../../stores/engine.store';
 import { useEngagementStore } from '../../stores/engagement.store';
 import { db } from '../../db/schema';
@@ -18,6 +26,10 @@ import {
   workbookToArrayBuffer,
 } from '../../exports/schedule-of-areas';
 import { buildAssumptionsCsv } from '../../exports/assumptions-csv';
+import {
+  downloadSccSnapshot,
+  importSccSnapshot,
+} from '../../exports/scc-snapshot';
 import { triggerDownload, fileBaseFromName } from '../../exports/download';
 import { cn } from '../../utils/cn';
 
@@ -32,6 +44,9 @@ export function OutputsTab() {
   });
   const regionProfile = useEngagementStore((s) => s.regionProfile);
   const [pdfBuilding, setPdfBuilding] = useState(false);
+  const [pptBuilding, setPptBuilding] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const fileBase = fileBaseFromName(engagement?.name);
   const engagementName = engagement?.name;
@@ -83,6 +98,46 @@ export function OutputsTab() {
       triggerDownload(blob, `${fileBase}-summary.pdf`);
     } finally {
       setPdfBuilding(false);
+    }
+  };
+
+  const downloadPpt = async () => {
+    if (!lastTornado) return;
+    setPptBuilding(true);
+    try {
+      // pptxgenjs is also heavy — lazy-load.
+      const { buildTornadoPptBlob } = await import('../../exports/tornado-ppt');
+      const blob = await buildTornadoPptBlob({
+        tornado: lastTornado,
+        engagementName,
+        regionProfile: region,
+      });
+      triggerDownload(blob, `${fileBase}-tornado.pptx`);
+    } finally {
+      setPptBuilding(false);
+    }
+  };
+
+  const downloadScc = async () => {
+    if (!activeEngagementId) return;
+    await downloadSccSnapshot(activeEngagementId, fileBase);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const out = await importSccSnapshot(file);
+      setImportMessage(
+        `Imported engagement ${out.engagementId} (.scc v${out.schemaVersion}, exported ${out.exportedAt}).`
+      );
+    } catch (err) {
+      setImportMessage(
+        `Import failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      // Reset so the same file can be re-imported.
+      e.target.value = '';
     }
   };
 
@@ -149,12 +204,46 @@ export function OutputsTab() {
             void downloadPdf();
           }}
         />
+
+        <ExportCard
+          icon={<Layers className="h-4 w-4" />}
+          title="Tornado deck (PPT)"
+          description="Three-slide PowerPoint: title slide, native horizontal-bar tornado chart of the top 10 footprint sensitivities, and a full ranked sensitivity table with FTE deltas + feasibility tags."
+          phase="Chunk 3"
+          disabled={!lastTornado || pptBuilding}
+          buttonLabel={pptBuilding ? 'Building…' : 'Download'}
+          onClick={() => {
+            void downloadPpt();
+          }}
+        />
+
+        <ExportCard
+          icon={<FileText className="h-4 w-4" />}
+          title=".scc snapshot (export)"
+          description="Compressed engagement archive (gzipped JSON envelope, schema v2). Round-trips into any SCConnect DC Sizing instance — same format R2 uses internally."
+          phase="Chunk 3"
+          disabled={!activeEngagementId}
+          onClick={() => {
+            void downloadScc();
+          }}
+        />
+
+        <SccImportCard
+          inputRef={importInputRef}
+          onFileChange={handleImport}
+        />
       </div>
 
-      <p className="mt-6 text-xs text-muted-foreground">
-        <strong>Coming next (Phase 8 Chunk 3):</strong> Tornado deck
-        (pptxgenjs) + .scc snapshot import / export.
-      </p>
+      {importMessage && (
+        <div className="mt-3">
+          <Banner kind={importMessage.startsWith('Import failed') ? 'error' : 'success'}>
+            {!importMessage.startsWith('Import failed') && (
+              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+            )}
+            <span>{importMessage}</span>
+          </Banner>
+        </div>
+      )}
     </div>
   );
 }
@@ -196,6 +285,47 @@ function ExportCard({
         )}
       >
         {buttonLabel ?? 'Download'}
+      </button>
+    </div>
+  );
+}
+
+function SccImportCard({
+  inputRef,
+  onFileChange,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-card p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Upload className="h-4 w-4" />
+        <h3 className="text-sm font-semibold">.scc snapshot (import)</h3>
+        <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+          Chunk 3
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Restore an engagement from a previously-exported <code>.scc</code>
+        archive. Replaces every row scoped to the embedded engagement id —
+        SKUs, scenarios, ops profile.
+      </p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".scc,application/octet-stream"
+        onChange={(e) => {
+          void onFileChange(e);
+        }}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border border-border hover:bg-accent"
+      >
+        Choose .scc file…
       </button>
     </div>
   );

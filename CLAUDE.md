@@ -19,7 +19,8 @@
 - Phase 5 (Layout Feasibility) — live. Pure-TS rectangle solver in `src/ui/layout-renderer/solver.ts` packs Step 5 storage zones (largest-first), the Step 9 dock strip + doors (south wall, inbound left / outbound right), and the Step 10 support cluster (east strip) against the building envelope. Overflow is detected per-rect and as a Step 11.overEnvelope mirror. Layout tab renders the result via D3 scales + React SVG with role-coloured fills, hatched-overflow overlay, layer toggles (storage / staging / docks / support / labels / scale / north), legend, and fit-status banner.
 - Phase 6 (Automation + Scenarios + Tornado) — live. Step 12 sizes the alternative automated storage path for AutoStore / Exotec / Geek+ / HAI / Quicktron / pallet shuttle (single + mother-child) / mini-load ASRS / pallet AGV / Libiao sorter; per-system density, robot count, port count, throughput capacity, kVA. Step 11 substitutes the conventional storage zones for the automated footprint + front-end induction area when AutomationConfig is supplied — GFA / siteArea / footprintGfa all reflect the swap, with `conventionalRackedM2` + `automationSavingsM2` exposed for side-by-side comparison. ScenarioRunner distributes work across a 4-worker pool (default), tagging each result with feasibility. Step 14 tornado generator emits 17 SPEC params × {low, high} = 34 variants, runs them in the pool, ranks by weighted delta (footprint + FTE), 30+ variants in <1.5s SPEC budget. Scenarios tab gains an automation system picker, "Run tornado" button + horizontal-bar tornado chart with footprint/FTE metric toggle and hatched-infeasibility overlay.
 - Phase 7 (Visio-grade SVG Layout, Step 13) — live. EngineBuildingEnvelope grew `polygonVertices`, threaded through useLayoutResult to the solver. Solver runs ray-casting point-in-polygon clip on every placed rect (retro-overflow for any rect crossing the polygon), and emits per-zone aisle hints (orientation + count) sourced from Step 5. Renderer (`LayoutSvg.tsx`) is now a layered SVG with all 11 SPEC layers wired: column grid, storage (with aisle strokes), staging, docks (any wall), support, flow arrows (I/U/L/custom via `flow.ts`), fire egress (`egress.ts` 5 m grid + 45 m default threshold, polygon-aware), pedestrian, labels, scale, compass. Click-for-selection drives `SelectionPanel.tsx`. Infeasibility roll-up extends `LayoutResult.infeasibility` with shortfall numbers (slab UDL, clear height, seismic mass, envelope) and surfaces them both in a top-of-canvas red badge inside the SVG (so exports include it) and as a multi-flag FitBanner on the tab. Layout tab gets SVG + 2× PNG export buttons (`export.ts`) named after the active engagement.
-- Next: Phase 8 Outputs & Export — Excel (SheetJS), PDF (react-pdf), PPT tornado (pptxgenjs), .scc snapshot.
+- Phase 8 (Outputs & Export) — live. `src/exports/` now ships every SPEC §12 deliverable: Schedule of Areas (multi-sheet Excel via SheetJS — Summary / Storage Zones / Labour / MHE Fleet / Docks & Staging / Support Areas / Footprint Rollup / Automation / Feasibility), Assumptions CSV (flat ops-profile dump with quote-escaped fields), Summary report PDF (react-pdf, four-page A4 deck — cover + key metrics + schedule + optional tornado page), Tornado PPT (pptxgenjs, three slides with a native PowerPoint horizontal-bar chart), and .scc snapshot import / export (round-trips through the existing src/sync/serialize gzipped JSON envelope, schema v2). Heavy deps (react-pdf 1.4 MB, pptxgenjs 372 KB) dynamic-import on click so the entry chunk doesn't pay the cost up front. The Outputs tab is the central download panel.
+- Next: Phase 9 Polish — code-split SheetJS, perf profiling, error boundaries, keyboard shortcuts.
 
 ## Architecture (don't re-relitigate)
 
@@ -50,6 +51,13 @@ src/
     validators/     Step0ValidationLayer.ts — runValidationLayer + applyAutoFixes
   ingestion/        CSV → validated SkuRecord → Dexie. PapaParse + Zod + Float32Array.
   sync/             R2 push/pull (Phase 0.75)
+  exports/          Phase 8 export builders:
+                    schedule-of-areas.ts (SheetJS multi-sheet workbook),
+                    assumptions-csv.ts (flat ops-profile CSV),
+                    SummaryPdf.tsx + pdf-renderer.tsx (react-pdf, dynamic-imported),
+                    tornado-ppt.ts (pptxgenjs, dynamic-imported),
+                    scc-snapshot.ts (.scc round-trip wrapping src/sync/serialize),
+                    download.ts (shared Blob → file trigger).
   ui/
     tabs/           7 tabs (Engagements, Inputs, Reference, Design Rules, Scenarios, Outputs, Layout)
     components/     TabShell, Hydration skeleton, etc.
@@ -226,6 +234,18 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] 18 new tests (polygon round-trip, polygon clip on L-shape, aisle hints, infeasibility roll-up, point-in-polygon helper, flow paths × 4 patterns, doorCentre, egress thresholding + polygon clip, serialiseSvg, infeasibility shortfalls); 159/159 total passing
 - [x] `npm run build` + `npm run lint` green; bundle 698 KB / 214 KB gz (+14 KB / +4 KB gz vs Phase 6)
 - [x] Layout solver < 10 ms per run; SPEC §14 budget for layout generation (200 ms) easily met
+
+## Phase 8 gate — verified
+
+- [x] Schedule of Areas (xlsx): multi-sheet workbook via SheetJS — Summary, Storage Zones, Labour, MHE Fleet, Docks & Staging, Support Areas, Footprint Rollup, Automation (when applied), Feasibility. Pure `PipelineOutputs → ArrayBuffer` builder.
+- [x] Assumptions CSV: flat dump of OpsProfile (productivity, peak uplift, DSOH per bucket, soft space, regional defaults, tornado weights), CSV-escapes commas / quotes / newlines.
+- [x] Summary PDF: react-pdf four-page A4 deck (cover w/ feasibility verdict, key metrics, schedule of areas, tornado top-10 when run). Dynamic-imported so react-pdf (~1.4 MB) doesn't bloat the entry chunk.
+- [x] Tornado PPT: pptxgenjs three-slide deck (title, native horizontal-bar tornado chart of top-10 footprint deltas, full ranked sensitivity table). Dynamic-imported (372 KB chunk).
+- [x] .scc snapshot import + export: thin wrapper around src/sync/serialize (gzipped JSON envelope, schema v2 with v1 fallback). Export downloads `<engagement>.scc`; import file-picker decodes + bulk-writes via importEngagementBlob.
+- [x] OutputsTab: 5 ExportCards (Schedule, Assumptions, PDF, PPT, .scc export) + dedicated .scc import card. Per-export `disabled` gating + "Building…" indicator on heavy renders.
+- [x] 13 new tests (workbook structure, ArrayBuffer round-trip, summary content, storage zone rows, automation sheet trigger, CSV sectioning, quote escaping, PDF magic-bytes, tornado page size delta, PPT ZIP magic, .scc envelope decode + Float32 preserve, schema-version reject); 171/171 total passing.
+- [x] `npm run build` green; entry 1006 KB / 318 KB gz (+8 KB vs Phase 7 from xlsx + ppt entry overhead). pdf-renderer 1430 KB / 480 KB gz, tornado-ppt 372 KB / 124 KB gz — both lazy-loaded.
+- [x] `npm run lint` green (1 pre-existing TanStack warning).
 
 ## What not to do
 
