@@ -37,6 +37,14 @@ interface EngineState {
    *  here. Engine runs gated by validationAcknowledgedHash === lastValidation.inputHash. */
   validationAcknowledgedHash: string | null;
 
+  // Phase 6 — Tornado state
+  tornadoStatus: EngineStatus;
+  tornadoProgress: { current: number; total: number };
+  /** Last tornado run output. Stored as `unknown` to keep the store JSON
+   *  round-trip safe (avoid leaking class instances). */
+  lastTornado: unknown | null;
+  lastTornadoHash: string | null;
+
   setStatus: (status: EngineStatus) => void;
   setProgress: (current: number, total: number) => void;
   setResult: (result: unknown, hash: string) => void;
@@ -45,6 +53,10 @@ interface EngineState {
 
   setValidation: (summary: ValidationSummary | null) => void;
   acknowledgeValidation: () => void;
+
+  setTornadoStatus: (status: EngineStatus) => void;
+  setTornadoProgress: (current: number, total: number) => void;
+  setTornadoResult: (result: unknown, hash: string) => void;
 }
 
 export const useEngineStore = create<EngineState>()(
@@ -58,6 +70,11 @@ export const useEngineStore = create<EngineState>()(
 
     lastValidation: null,
     validationAcknowledgedHash: null,
+
+    tornadoStatus: 'idle',
+    tornadoProgress: { current: 0, total: 0 },
+    lastTornado: null,
+    lastTornadoHash: null,
 
     setStatus: (status) =>
       set((s) => {
@@ -82,6 +99,9 @@ export const useEngineStore = create<EngineState>()(
         // acknowledgement. Same logic as the engine cache.
         s.lastValidation = null;
         s.validationAcknowledgedHash = null;
+        // Tornado is downstream of the baseline result — invalidate too.
+        s.lastTornado = null;
+        s.lastTornadoHash = null;
       }),
     recordCacheHit: () =>
       set((s) => {
@@ -103,6 +123,21 @@ export const useEngineStore = create<EngineState>()(
     acknowledgeValidation: () =>
       set((s) => {
         if (s.lastValidation) s.validationAcknowledgedHash = s.lastValidation.inputHash;
+      }),
+
+    setTornadoStatus: (status) =>
+      set((s) => {
+        s.tornadoStatus = status;
+      }),
+    setTornadoProgress: (current, total) =>
+      set((s) => {
+        s.tornadoProgress = { current, total };
+      }),
+    setTornadoResult: (result, hash) =>
+      set((s) => {
+        s.lastTornado = result;
+        s.lastTornadoHash = hash;
+        s.tornadoStatus = 'idle';
       }),
   }))
 );

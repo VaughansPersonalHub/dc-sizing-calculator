@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Play, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Play, AlertTriangle, CheckCircle2, Loader2, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEngagementStore } from '../../stores/engagement.store';
 import { useEngineStore } from '../../stores/engine.store';
 import { useDataStore } from '../../stores/data.store';
 import { runEngineForEngagement } from '../../engine/runner';
+import { runTornadoForEngagement } from '../../engine/tornadoRunner';
+import { TornadoChart, type TornadoMetric } from '../components/TornadoChart';
+import type { TornadoResult } from '../../engine/tornado';
 import { cn } from '../../utils/cn';
 
 export function ScenariosTab() {
@@ -15,8 +18,14 @@ export function ScenariosTab() {
   const lastResult = useEngineStore((s) => s.lastResult) as EngineResultShape | null;
   const validation = useEngineStore((s) => s.lastValidation);
   const acknowledgedHash = useEngineStore((s) => s.validationAcknowledgedHash);
+
+  const tornadoStatus = useEngineStore((s) => s.tornadoStatus);
+  const tornadoProgress = useEngineStore((s) => s.tornadoProgress);
+  const lastTornado = useEngineStore((s) => s.lastTornado) as TornadoResult | null;
+
   const [error, setError] = useState<string | null>(null);
   const [progressLabel, setProgressLabel] = useState<string>('');
+  const [tornadoMetric, setTornadoMetric] = useState<TornadoMetric>('footprint');
 
   const validationAcknowledged =
     validation !== null && validation.inputHash === acknowledgedHash;
@@ -25,6 +34,8 @@ export function ScenariosTab() {
     skuCount > 0 &&
     status !== 'running' &&
     validationAcknowledged;
+  const canRunTornado =
+    !!activeEngagementId && lastResult !== null && tornadoStatus !== 'running';
 
   async function onRun() {
     if (!activeEngagementId) return;
@@ -33,6 +44,21 @@ export function ScenariosTab() {
       await runEngineForEngagement({
         engagementId: activeEngagementId,
         onProgress: (_step, _total, label) => setProgressLabel(label),
+      });
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function onRunTornado() {
+    if (!activeEngagementId || !lastResult) return;
+    setError(null);
+    try {
+      await runTornadoForEngagement({
+        engagementId: activeEngagementId,
+        // The pipeline result lives on the store as an unknown; we cast it
+        // back to the typed shape that runTornado expects.
+        baselineResult: lastResult as never,
       });
     } catch (err) {
       setError((err as Error).message);
@@ -105,6 +131,83 @@ export function ScenariosTab() {
 
       {lastResult && (
         <ResultSummary result={lastResult} />
+      )}
+
+      {lastResult && (
+        <div className="mt-6 rounded-md border border-border bg-card p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              type="button"
+              disabled={!canRunTornado}
+              onClick={onRunTornado}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-scc-charcoal text-scc-gold disabled:opacity-40"
+            >
+              {tornadoStatus === 'running' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <BarChart3 className="h-4 w-4" />
+              )}
+              Run tornado (17 params × low/high)
+            </button>
+            <div className="text-xs text-muted-foreground">
+              {tornadoStatus === 'running' && tornadoProgress.total > 0 && (
+                <>
+                  {tornadoProgress.current}/{tornadoProgress.total} variants
+                </>
+              )}
+              {tornadoStatus === 'idle' && lastTornado && (
+                <>
+                  {lastTornado.summary.scenarios.length} variants ·{' '}
+                  {lastTornado.summary.totalElapsedMs.toFixed(0)} ms ·{' '}
+                  {lastTornado.feasibleVariantCount} feasible /{' '}
+                  {lastTornado.infeasibleVariantCount} infeasible
+                </>
+              )}
+            </div>
+          </div>
+
+          {lastTornado && (
+            <>
+              <div className="flex items-center gap-2 mb-2 text-xs">
+                <span className="text-muted-foreground">Metric:</span>
+                <button
+                  type="button"
+                  className={cn(
+                    'px-2 py-0.5 rounded',
+                    tornadoMetric === 'footprint'
+                      ? 'bg-scc-charcoal text-scc-gold'
+                      : 'bg-card border border-border'
+                  )}
+                  onClick={() => setTornadoMetric('footprint')}
+                >
+                  Footprint Δ (m²)
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'px-2 py-0.5 rounded',
+                    tornadoMetric === 'fte'
+                      ? 'bg-scc-charcoal text-scc-gold'
+                      : 'bg-card border border-border'
+                  )}
+                  onClick={() => setTornadoMetric('fte')}
+                >
+                  Peak FTE Δ
+                </button>
+              </div>
+              <div className="overflow-auto">
+                <TornadoChart tornado={lastTornado} metric={tornadoMetric} />
+              </div>
+              <div className="mt-2 text-[10px] text-muted-foreground">
+                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#0ea5e9] mr-1" />
+                Low variant
+                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#f97316] ml-3 mr-1" />
+                High variant
+                <span className="ml-3">Hatched = infeasible</span>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

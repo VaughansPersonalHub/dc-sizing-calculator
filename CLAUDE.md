@@ -16,8 +16,9 @@
 - Phase 3 (Engine Core, Steps 0–6) — live. Pure-TS pipeline with mandatory gates 4.5 (clear height) and 4.6 (seismic mass) runs in a Web Worker via transferable Float32Array. Step 0 ValidationLayer ships every SPEC §7 code + auto-fix helpers. Pipeline runs 5 000 SKUs end-to-end in ~36 ms (SPEC budget 50 ms). UI trigger lives on the Scenarios tab — happy path renders feasibility + per-step summary cards.
 - Phase 2.5 (Data Quality Dashboard) — live. Surfaces Step 0 output (stats + per-code breakdown), exposes the four SPEC auto-fixes (clamp negatives, suppress zero-demand, cap CV, normalise channel mix), and gates the engine "Run" button behind an explicit Acknowledge. Acknowledgement is hash-locked to the current SKU set + halal flag — any CSV import or auto-fix application invalidates it.
 - Phase 4 (Engine Steps 7–11) — live. Step 7 labour applies the seven SPEC travel models (sqrt_area / sequential_hv / shuttle_cycle / crane_cycle / g2p_port / amr_fleet / zero), the availability factor method (NOT multiplicative summing), and Ramadan annual derate for MY/ID. Step 8 fleet sizes MHE per battery chemistry (lithium opportunity / lead-acid swap / fuel cell). Step 9 sizes inbound + outbound doors from blended container mix and bimodal staging (fast cross-dock vs QC/decant). Step 10 rolls up support areas including Surau (15m²/50 muslim staff + 6m² ablution), customs (bonded engagements only), halal uplift factor, ante-chamber, lithium kVA buffer. Step 11 totals operational + officeAndAmenities + canopy and runs four feasibility gates (clearHeight, seismic, slab UDL, envelope fit). Scenarios tab surfaces all 11 steps end-to-end.
-- Phase 5 (Layout Feasibility) — live. Pure-TS rectangle solver in `src/layout-renderer/solver.ts` packs Step 5 storage zones (largest-first), the Step 9 dock strip + doors (south wall, inbound left / outbound right), and the Step 10 support cluster (east strip) against the building envelope. Overflow is detected per-rect and as a Step 11.overEnvelope mirror. Layout tab renders the result via D3 scales + React SVG with role-coloured fills, hatched-overflow overlay, layer toggles (storage / staging / docks / support / labels / scale / north), legend, and fit-status banner.
-- Next: Phase 6 scenario engine + tornado (Step 14) + automation overrides (Step 12).
+- Phase 5 (Layout Feasibility) — live. Pure-TS rectangle solver in `src/ui/layout-renderer/solver.ts` packs Step 5 storage zones (largest-first), the Step 9 dock strip + doors (south wall, inbound left / outbound right), and the Step 10 support cluster (east strip) against the building envelope. Overflow is detected per-rect and as a Step 11.overEnvelope mirror. Layout tab renders the result via D3 scales + React SVG with role-coloured fills, hatched-overflow overlay, layer toggles (storage / staging / docks / support / labels / scale / north), legend, and fit-status banner.
+- Phase 6 (Automation + Scenarios + Tornado) — live. Step 12 sizes the alternative automated storage path for AutoStore / Exotec / Geek+ / HAI / Quicktron / pallet shuttle (single + mother-child) / mini-load ASRS / pallet AGV / Libiao sorter; per-system density, robot count, port count, throughput capacity, kVA. ScenarioRunner distributes work across a 4-worker pool (default), tagging each result with feasibility. Step 14 tornado generator emits 17 SPEC params × {low, high} = 34 variants, runs them in the pool, ranks by weighted delta (footprint + FTE), 30+ variants in <1.5s SPEC budget. Scenarios tab gains a "Run tornado" button + horizontal-bar tornado chart with footprint/FTE metric toggle and hatched-infeasibility overlay.
+- Next: Phase 7 Visio-grade SVG layout (Step 13) — polygon envelopes, 11-layer toggling, flow arrows, fire egress, SVG export.
 
 ## Architecture (don't re-relitigate)
 
@@ -35,12 +36,16 @@ src/
   db/               Dexie v1 schema (11 tables) + seed routine
     repositories/   Write-through wrappers for each library (upsert/delete/resetToSeed) — the UI calls these, not Dexie directly
   engine/           Pure-TS calc pipeline (Steps 0–14)
-    pipeline.ts     Orchestrator — runs Steps 0..11 in order, returns full result envelope
+    pipeline.ts     Orchestrator — runs Steps 0..12 in order, returns full result envelope
     runner.ts       Main-thread façade — reads Dexie + stores, posts to worker
+    inputsBuilder.ts  Shared engagement→PipelineInputs helper (used by runner + tornadoRunner)
+    scenarioRunner.ts  4-worker pool that distributes ScenarioOverrides
+    tornado.ts      Step 14: 17 SPEC params × {low, high} = 34 variants
+    tornadoRunner.ts  Main-thread façade for the tornado
     workerClient.ts Spawns the engine Worker, transfers Float32 demand
     protocol.ts     Worker message shapes (run / progress / result / error)
-    steps/          Step01Profiling.ts, Step02ForwardGrowth.ts, Step03SlotSizing.ts, Step04Bays.ts (incl. 4.5 + 4.6), Step05Footprint.ts, Step06Throughput.ts, Step07Labour.ts, Step08MheFleet.ts, Step09DockSchedule.ts, Step10SupportAreas.ts, Step11FootprintRollup.ts
-    models/         Shared engine types (EngineSku, EngineOpsProfile, EnginePallet, EngineRackSystem, EngineBuildingEnvelope, EngineMheClass, EngineProductivityCell, EngineRegionalContext) — kept Zod-free for the worker
+    steps/          Step01..Step12 (Profiling, ForwardGrowth, SlotSizing, Bays incl. 4.5/4.6, Footprint, Throughput, Labour, MheFleet, DockSchedule, SupportAreas, FootprintRollup, Automation)
+    models/         Shared engine types (EngineSku, EngineOpsProfile, EnginePallet, EngineRackSystem, EngineBuildingEnvelope, EngineMheClass, EngineProductivityCell, EngineRegionalContext, EngineAutomationSystem, EngineAutomationConfig) — kept Zod-free for the worker
     validators/     Step0ValidationLayer.ts — runValidationLayer + applyAutoFixes
   ingestion/        CSV → validated SkuRecord → Dexie. PapaParse + Zod + Float32Array.
   sync/             R2 push/pull (Phase 0.75)
@@ -188,6 +193,18 @@ Note — scaffold delivered React 19 / TS 6 / Vite 8 / Zustand 5 / Zod 4 (newer 
 - [x] Solver runs in < 10 ms for 200-SKU engagements
 - [x] 6 new tests (placement, overflow, doors, support strip, empty zones, perf); 117/117 total passing
 - [x] `npm run build` + `npm run lint` green; bundle 669 KB / 206 KB gz (+30 KB for d3-scale)
+
+## Phase 6 gate — verified
+
+- [x] Step 12 Automation Override: 10 systems supported (AutoStore / Exotec / Geek+ / HAI HaiPick / Quicktron / pallet shuttle single+mother-child / mini-load ASRS / pallet AGV / Libiao sorter), per-system density math, robot+port count sizing, throughput-meets-peak gate
+- [x] Pipeline accepts optional `automationConfig` + `automationLibrary`; emits step12 output alongside step1-11
+- [x] ScenarioRunner: 4-worker pool (clamped to ≤ overrides.length), FIFO queue distribution, failures captured separately, applyOverride pure
+- [x] Step 14 Tornado: 17 SPEC params curated, 34 variants, ranking by weightedDelta (default 0.5/0.5)
+- [x] inputsBuilder.ts extracts shared engagement→PipelineInputs logic used by both runners
+- [x] Scenarios tab "Run tornado" button + horizontal bar chart with footprint/FTE toggle and hatched-infeasibility overlay
+- [x] 23 new tests (Step 12: 9, scenarioRunner: 7, tornado: 7); 140/140 total passing
+- [x] 30 variants in < 1.5s (SPEC §13 Phase 6 gate); fake-worker harness for tests
+- [x] `npm run build` + `npm run lint` green; bundle 683 KB / 209 KB gz
 
 ## What not to do
 
