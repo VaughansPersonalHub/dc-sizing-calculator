@@ -9,58 +9,103 @@ export function PalletsEditor() {
 
   const columns = useMemo<EditableColumn<PalletStandard>[]>(
     () => [
-      { accessorKey: 'pallet_id', header: 'Pallet ID', meta: { kind: 'text' } },
-      { accessorKey: 'name', header: 'Name', meta: { kind: 'text' } },
+      {
+        accessorKey: 'pallet_id',
+        header: 'Pallet ID',
+        meta: { kind: 'text', tooltip: 'Stable identifier.' },
+      },
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        meta: { kind: 'text', tooltip: 'Display name.' },
+      },
       {
         id: 'region',
         header: 'Region',
         accessorFn: (r) => r.region.join(', '),
-        meta: { kind: 'readonly' },
+        meta: {
+          kind: 'readonly',
+          tooltip:
+            'Regions where this pallet standard is in common use. Drives the regional default in the wizard.',
+        },
       },
       {
         id: 'length',
         header: 'Length mm',
         accessorFn: (r) => r.dimensionsMm.length,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: { kind: 'readonly', align: 'right', tooltip: 'Pallet outer length (mm).' },
       },
       {
         id: 'width',
         header: 'Width mm',
         accessorFn: (r) => r.dimensionsMm.width,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: { kind: 'readonly', align: 'right', tooltip: 'Pallet outer width (mm).' },
       },
       {
         id: 'height',
         header: 'Height mm',
         accessorFn: (r) => r.dimensionsMm.height,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: { kind: 'readonly', align: 'right', tooltip: 'Empty pallet height (mm).' },
       },
       {
         accessorKey: 'maxLoadKg',
         header: 'Max load kg',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'Maximum gross load on the pallet — drives rack beam selection and floor load roll-up.',
+        },
       },
       {
         accessorKey: 'emptyWeightKg',
         header: 'Empty kg',
-        meta: { kind: 'number', align: 'right', step: 0.1 },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          step: 0.1,
+          tooltip: 'Pallet tare weight (kg). Subtracted from gross to get net product weight.',
+        },
       },
       {
         accessorKey: 'typicalCubeM3',
         header: 'Cube m³',
-        meta: { kind: 'number', align: 'right', step: 0.01 },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          step: 0.01,
+          tooltip: 'Typical loaded cube. Drives container-fit math for 40HC / 20ft inbound.',
+        },
       },
       {
         accessorKey: 'fitsContainer40ftHc',
         header: '40HC',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'How many of this pallet fit floor-stacked in a 40-foot high-cube container. Drives Step 9 inbound mix.',
+        },
       },
       {
         accessorKey: 'fitsContainer20ft',
         header: '20ft',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'How many of this pallet fit floor-stacked in a 20-foot container. Drives Step 9 inbound mix.',
+        },
       },
-      { accessorKey: 'isoReference', header: 'ISO ref', meta: { kind: 'text' } },
+      {
+        accessorKey: 'isoReference',
+        header: 'ISO ref',
+        meta: {
+          kind: 'text',
+          tooltip:
+            'ISO 6780 size code. 1=1200×1000, 2=1200×800, 3=1100×1100 (T11, the Asian standard).',
+        },
+      },
     ],
     []
   );

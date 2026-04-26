@@ -11,44 +11,92 @@ export function MheEditor() {
 
   const columns = useMemo<EditableColumn<MheClass>[]>(
     () => [
-      { accessorKey: 'mhe_id', header: 'MHE ID', meta: { kind: 'text' } },
-      { accessorKey: 'name', header: 'Name', meta: { kind: 'text' } },
-      { accessorKey: 'category', header: 'Category', meta: { kind: 'text' } },
+      {
+        accessorKey: 'mhe_id',
+        header: 'MHE ID',
+        meta: { kind: 'text', tooltip: 'Stable identifier referenced by Step 8 fleet sizing.' },
+      },
+      { accessorKey: 'name', header: 'Name', meta: { kind: 'text', tooltip: 'Display name.' } },
+      {
+        accessorKey: 'category',
+        header: 'Category',
+        meta: {
+          kind: 'text',
+          tooltip:
+            'forklift / reach / VNA turret / order picker / pallet jack / AMR / AGV. Drives travel-model selection in Step 7.',
+        },
+      },
       {
         accessorKey: 'aisleWidthMmMin',
         header: 'Aisle min (mm)',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'Minimum operable aisle width. Step 5 will reject zone layouts that violate this against the rack profile.',
+        },
       },
       {
         accessorKey: 'aisleWidthMmDefault',
         header: 'Aisle default (mm)',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip: 'Recommended aisle width — Step 5 baseline alignment.',
+        },
       },
       {
         accessorKey: 'liftHeightMmMax',
         header: 'Lift max (mm)',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'Maximum lift height. Caps the rack levels this MHE can serve; combined with Step 4.5 clear height.',
+        },
       },
       {
         accessorKey: 'travelSpeedKph',
         header: 'Travel kph',
-        meta: { kind: 'number', align: 'right', step: 0.1 },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          step: 0.1,
+          tooltip:
+            'Maximum laden travel speed. Drives the horizontal component of the Step 7 travel-time model.',
+        },
       },
       {
         accessorKey: 'liftSpeedMpm',
         header: 'Lift m/min',
-        meta: { kind: 'number', align: 'right', step: 0.1 },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          step: 0.1,
+          tooltip:
+            'Lift speed (laden, m/min). Drives the vertical component of the Step 7 travel-time model.',
+        },
       },
       {
         id: 'battery',
         header: 'Battery',
         accessorFn: (r) => r.battery.type,
-        meta: { kind: 'readonly' },
+        meta: {
+          kind: 'readonly',
+          tooltip:
+            'lead-acid swap / lithium opportunity / fuel cell / none. Drives Step 8 charging area & kVA roll-up.',
+        },
       },
       {
         accessorKey: 'utilisationTargetDefault',
         header: 'Util target',
-        meta: { kind: 'number', align: 'right', step: 0.01 },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          step: 0.01,
+          tooltip:
+            'Target utilisation (0-1). Step 8 sizes fleet so peak demand stays under this. Lower = more units, more redundancy.',
+        },
       },
     ],
     []

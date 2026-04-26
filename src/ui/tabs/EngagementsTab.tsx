@@ -13,6 +13,7 @@ import type { EngagementMeta } from '../../schemas/engagement';
 import { REGION_LABELS, type RegionId } from '../../schemas/regional';
 import { cn } from '../../utils/cn';
 import { EngagementWizard } from '../components/engagements/EngagementWizard';
+import { Tooltip } from '../components/Tooltip';
 
 export function EngagementsTab() {
   const libs = useDataStore((s) => s.libraries);
@@ -121,14 +122,19 @@ export function EngagementsTab() {
       </p>
 
       <div className="flex items-center gap-2 mb-3">
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-scc-charcoal text-scc-gold hover:opacity-90"
+        <Tooltip
+          content="Opens the 4-step wizard: name → region (KR / TW / VN / MY / SG / ID) → review regional flags (halal, Surau, Ramadan, bonded, backup gen) → create. Writes to D1 + Dexie."
+          side="bottom"
         >
-          <Plus className="h-3.5 w-3.5" />
-          New engagement
-        </button>
+          <button
+            type="button"
+            onClick={() => setWizardOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-scc-charcoal text-scc-gold hover:opacity-90"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New engagement
+          </button>
+        </Tooltip>
         <div className="flex-1" />
         <div className="text-xs text-muted-foreground">
           Active:{' '}
@@ -197,32 +203,46 @@ export function EngagementsTab() {
                   </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        disabled={openingId === e.id}
-                        onClick={() => handleOpen(e.id)}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-accent"
+                      <Tooltip
+                        content={
+                          isActive
+                            ? 'Already open. The Inputs / Reference / Scenarios / Layout tabs are scoped to this engagement.'
+                            : 'Pulls the engagement blob from R2 and hydrates Dexie + Zustand. SKU set, ops profile, and saved engine results all switch to this one.'
+                        }
+                        side="left"
                       >
-                        {openingId === e.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <FolderOpen className="h-3 w-3" />
-                        )}
-                        {isActive ? 'Active' : 'Open'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={archivingId === e.id}
-                        onClick={() => handleArchive(e.id)}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded text-muted-foreground hover:bg-accent"
-                        aria-label="Archive engagement"
+                        <button
+                          type="button"
+                          disabled={openingId === e.id}
+                          onClick={() => handleOpen(e.id)}
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-accent"
+                        >
+                          {openingId === e.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <FolderOpen className="h-3 w-3" />
+                          )}
+                          {isActive ? 'Active' : 'Open'}
+                        </button>
+                      </Tooltip>
+                      <Tooltip
+                        content="Marks the engagement archived in D1. Hidden from the list but the .scc blob and audit trail are preserved on R2."
+                        side="left"
                       >
-                        {archivingId === e.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Archive className="h-3 w-3" />
-                        )}
-                      </button>
+                        <button
+                          type="button"
+                          disabled={archivingId === e.id}
+                          onClick={() => handleArchive(e.id)}
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded text-muted-foreground hover:bg-accent"
+                          aria-label="Archive engagement"
+                        >
+                          {archivingId === e.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Archive className="h-3 w-3" />
+                          )}
+                        </button>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>

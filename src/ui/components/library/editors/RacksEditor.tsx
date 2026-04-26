@@ -14,55 +14,96 @@ export function RacksEditor() {
       {
         accessorKey: 'system_id',
         header: 'System ID',
-        meta: { kind: 'text' },
+        meta: {
+          kind: 'text',
+          tooltip: 'Stable identifier — referenced by SKU rack assignments and Step 4 bay calc.',
+        },
       },
       {
         accessorKey: 'name',
         header: 'Name',
-        meta: { kind: 'text' },
+        meta: { kind: 'text', tooltip: 'Display name shown across the engine output and exports.' },
       },
       {
         accessorKey: 'storageType',
         header: 'Storage',
-        meta: { kind: 'text' },
+        meta: {
+          kind: 'text',
+          tooltip:
+            'Selective / drive-in / drive-thru / push-back / pallet-flow / VNA. Drives Step 4 alignment math and Step 5 zone density.',
+        },
       },
       {
         accessorKey: 'densityRating',
         header: 'Density',
-        meta: { kind: 'select', options: DENSITY_OPTIONS },
+        meta: {
+          kind: 'select',
+          options: DENSITY_OPTIONS,
+          tooltip:
+            'Heuristic density class: low (selective) → very_high (VNA, pallet-flow). Ranks options when multiple racks could serve a zone.',
+        },
       },
       {
         id: 'bay',
         header: 'Bay W×D×H (mm)',
-        accessorFn: (r) =>
-          `${r.bay.widthMm}×${r.bay.depthMm}×${r.bay.heightMmDefault}`,
-        meta: { kind: 'readonly' },
+        accessorFn: (r) => `${r.bay.widthMm}×${r.bay.depthMm}×${r.bay.heightMmDefault}`,
+        meta: {
+          kind: 'readonly',
+          tooltip:
+            'Bay outer dimensions. Width drives slots/bay; depth = single- vs double-deep; height defines the structural rack envelope.',
+        },
       },
       {
         accessorKey: 'slotsPerBay',
         header: 'Slots/bay',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'Pallet positions per bay. Selective = 2; deep-lane = 1; pallet-flow = lane-depth.',
+        },
       },
       {
         accessorKey: 'levelsDefault',
         header: 'Levels',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'Default vertical rack levels. Step 4.5 may shrink this if usable clear height is insufficient.',
+        },
       },
       {
         id: 'perLevelKg',
         header: 'Load/level kg',
         accessorFn: (r) => r.load.perLevelKg,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: {
+          kind: 'readonly',
+          align: 'right',
+          tooltip:
+            'Maximum uniform load per beam pair (kg). Combined with rack count, feeds Step 4.6 seismic-mass check.',
+        },
       },
       {
         accessorKey: 'structuralBayBlock',
         header: 'Bay block',
-        meta: { kind: 'number', align: 'right' },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          tooltip:
+            'Structural sub-block size — bays before a structural break. Used in Step 5 layout alignment.',
+        },
       },
       {
         accessorKey: 'costPerPalletPositionUsd',
         header: '$ / position',
-        meta: { kind: 'number', align: 'right', step: 1 },
+        meta: {
+          kind: 'number',
+          align: 'right',
+          step: 1,
+          tooltip:
+            'Indicative installed cost per pallet position (USD). Informational — wired into the X.1 costing module when that scope is unlocked.',
+        },
       },
     ],
     []

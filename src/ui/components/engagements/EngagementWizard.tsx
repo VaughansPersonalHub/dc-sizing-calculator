@@ -22,6 +22,7 @@ import {
 import { createEngagement, openEngagement } from '../../../sync';
 import { engagementsLocalRepo, opsProfileRepo } from '../../../db/repositories';
 import type { EngagementMeta } from '../../../schemas/engagement';
+import { InfoTip } from '../InfoTip';
 
 interface Props {
   onClose: () => void;
@@ -162,8 +163,12 @@ export function EngagementWizard({ onClose, onCreated }: Props) {
           {step === 1 && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1.5">
                   Engagement name *
+                  <InfoTip
+                    content="Internal label — appears in the engagement list, Outputs file names, and audit log. Convention: '[Client] [Site] DC[n]'. Editable later."
+                    side="right"
+                  />
                 </label>
                 <input
                   autoFocus
@@ -174,8 +179,12 @@ export function EngagementWizard({ onClose, onCreated }: Props) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1.5">
                   Client name
+                  <InfoTip
+                    content="Optional. Surfaces in PDF / PPT exports. Useful when one engagement covers multiple clients (eg shared 3PL) or for confidentiality routing."
+                    side="right"
+                  />
                 </label>
                 <input
                   value={draft.clientName}
@@ -227,30 +236,36 @@ export function EngagementWizard({ onClose, onCreated }: Props) {
               </p>
               <FlagRow
                 label="Halal certification required (zone duplication ~15% uplift)"
+                tooltip="Per JAKIM (MY) / MUI (ID): non-halal SKUs must be physically segregated from halal storage, with separate dock lanes and racks. Adds ~15% to operational area."
                 checked={draft.halalCertifiedRequired}
                 onChange={(b) => setDraft((d) => ({ ...d, halalCertifiedRequired: b }))}
                 autoFrom={flags.halalCertifiedRequired}
               />
               <FlagRow
                 label="Customs bonded (hold area, fenced cage, dedicated dock)"
+                tooltip="Free-Trade-Zone / KPBPB designation. Adds Step 10 customs space (hold area + fenced cage), and a dedicated bonded dock lane."
                 checked={draft.isBonded}
                 onChange={(b) => setDraft((d) => ({ ...d, isBonded: b }))}
                 autoFrom={flags.customsBondedDefault}
               />
               <ReadOnlyRow
                 label="Surau (prayer room) — 15 m² per 50 Muslim staff + ablution"
+                tooltip="Prayer room provision required when the muslim staff count crosses ≥40. Includes ablution area. SPEC default: 1 m²/50 staff for the prayer space + 6 m² ablution."
                 active={flags.surauRequired}
               />
               <ReadOnlyRow
                 label={`Ramadan derate — ${flags.ramadanDerate.days} days × ${flags.ramadanDerate.factor}× FTE rate`}
+                tooltip="Annual fasting month productivity derate. SPEC default: 30 days × 0.82× rate. Phase 10.4 will generalise this into a learning curve."
                 active={flags.ramadanDerate.active}
               />
               <ReadOnlyRow
                 label="Backup generator mandatory"
+                tooltip="Required in ID due to grid reliability. Must cover MHE charging + lighting + WMS + cold-chain."
                 active={flags.backupGeneratorMandatory}
               />
               <ReadOnlyRow
                 label="Cold-chain ante-chamber default (tropical)"
+                tooltip="Buffer chamber between ambient and chilled/frozen zones — controls condensation and energy loss in tropical climates (MY / SG / ID / VN)."
                 active={flags.tempAntechamberRequired}
               />
             </div>
@@ -328,11 +343,13 @@ export function EngagementWizard({ onClose, onCreated }: Props) {
 
 function FlagRow({
   label,
+  tooltip,
   checked,
   onChange,
   autoFrom,
 }: {
   label: string;
+  tooltip?: string;
   checked: boolean;
   onChange: (b: boolean) => void;
   autoFrom: boolean;
@@ -346,7 +363,10 @@ function FlagRow({
         className="mt-0.5 accent-scc-gold"
       />
       <div className="flex-1">
-        <div>{label}</div>
+        <div className="flex items-center gap-1.5">
+          <span>{label}</span>
+          {tooltip && <InfoTip content={tooltip} side="top" label={`About: ${label}`} />}
+        </div>
         {autoFrom && (
           <div className="text-[10px] text-muted-foreground mt-0.5">
             Auto-enabled by region default
@@ -357,7 +377,15 @@ function FlagRow({
   );
 }
 
-function ReadOnlyRow({ label, active }: { label: string; active: boolean }) {
+function ReadOnlyRow({
+  label,
+  tooltip,
+  active,
+}: {
+  label: string;
+  tooltip?: string;
+  active: boolean;
+}) {
   return (
     <div
       className={cn(
@@ -371,7 +399,8 @@ function ReadOnlyRow({ label, active }: { label: string; active: boolean }) {
           active ? 'bg-scc-gold' : 'bg-muted-foreground'
         )}
       />
-      {label}
+      <span>{label}</span>
+      {tooltip && <InfoTip content={tooltip} side="top" label={`About: ${label}`} />}
     </div>
   );
 }

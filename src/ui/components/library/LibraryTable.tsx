@@ -11,6 +11,8 @@ import {
 } from '@tanstack/react-table';
 import { Search, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
+import { Tooltip } from '../Tooltip';
+import { InfoTip } from '../InfoTip';
 
 export type FieldKind = 'text' | 'number' | 'select' | 'boolean' | 'readonly' | 'compound';
 
@@ -25,6 +27,8 @@ export interface EditableFieldMeta<T> {
   align?: 'left' | 'right' | 'center';
   /** Step attr for number inputs. */
   step?: number;
+  /** Phase 10.1 — tooltip text shown next to the column header. */
+  tooltip?: string;
 }
 
 export type EditableColumn<T> = ColumnDef<T> & {
@@ -209,23 +213,33 @@ export function LibraryTable<T extends object, K extends string | number>({
           {table.getFilteredRowModel().rows.length} / {rows.length}
         </div>
         <div className="flex-1" />
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md bg-scc-charcoal text-scc-gold hover:opacity-90"
+        <Tooltip
+          content="Inserts a new row using the editor's template. The row is persisted to Dexie immediately; the engine cache invalidates."
+          side="bottom"
         >
-          <Plus className="h-3.5 w-3.5" />
-          Add row
-        </button>
-        <button
-          type="button"
-          onClick={handleReset}
-          disabled={resettingLibrary}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:bg-accent disabled:opacity-50"
+          <button
+            type="button"
+            onClick={handleAdd}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md bg-scc-charcoal text-scc-gold hover:opacity-90"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add row
+          </button>
+        </Tooltip>
+        <Tooltip
+          content="Restores this library to its SPEC seed. Any custom rows are removed; edits to seed rows are reverted. Cannot be undone."
+          side="bottom"
         >
-          <RotateCcw className={cn('h-3.5 w-3.5', resettingLibrary && 'animate-spin')} />
-          Reset to seed
-        </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={resettingLibrary}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:bg-accent disabled:opacity-50"
+          >
+            <RotateCcw className={cn('h-3.5 w-3.5', resettingLibrary && 'animate-spin')} />
+            Reset to seed
+          </button>
+        </Tooltip>
       </div>
 
       {error && (
@@ -243,6 +257,9 @@ export function LibraryTable<T extends object, K extends string | number>({
                   const canSort = h.column.getCanSort();
                   const sortDir = h.column.getIsSorted();
                   const m = (h.column.columnDef as EditableColumn<T>).meta;
+                  const headerLabel = h.isPlaceholder
+                    ? null
+                    : flexRender(h.column.columnDef.header, h.getContext());
                   return (
                     <th
                       key={h.id}
@@ -255,9 +272,17 @@ export function LibraryTable<T extends object, K extends string | number>({
                       onClick={canSort ? h.column.getToggleSortingHandler() : undefined}
                     >
                       <span className="inline-flex items-center gap-1">
-                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        {headerLabel}
                         {sortDir === 'asc' && <span>↑</span>}
                         {sortDir === 'desc' && <span>↓</span>}
+                        {m?.tooltip && (
+                          <InfoTip
+                            content={m.tooltip}
+                            side="bottom"
+                            label={`About column`}
+                            className="ml-0.5"
+                          />
+                        )}
                       </span>
                     </th>
                   );

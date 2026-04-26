@@ -15,54 +15,96 @@ export function BuildingsEditor() {
   // deep nested groups for a future drill-down editor.
   const columns = useMemo<EditableColumn<BuildingTemplate>[]>(
     () => [
-      { accessorKey: 'building_id', header: 'ID', meta: { kind: 'text' } },
-      { accessorKey: 'name', header: 'Name', meta: { kind: 'text' } },
+      {
+        accessorKey: 'building_id',
+        header: 'ID',
+        meta: { kind: 'text', tooltip: 'Stable identifier.' },
+      },
+      { accessorKey: 'name', header: 'Name', meta: { kind: 'text', tooltip: 'Display name.' } },
       {
         accessorKey: 'regionProfile',
         header: 'Region',
-        meta: { kind: 'select', options: REGIONS as readonly string[] },
+        meta: {
+          kind: 'select',
+          options: REGIONS as readonly string[],
+          tooltip:
+            'Regional bucket — drives default seismic / wind / plinth / halal / shift-pattern values when applied to an engagement.',
+        },
       },
       {
         id: 'footprint',
         header: 'Footprint m²',
         accessorFn: (r) => r.envelope.totalFootprintM2,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: {
+          kind: 'readonly',
+          align: 'right',
+          tooltip: 'Total building footprint (m²) — drives Step 11 envelope-fit gate.',
+        },
       },
       {
         id: 'eavesM',
         header: 'Eaves m',
         accessorFn: (r) => r.clearHeights.eavesM,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: {
+          kind: 'readonly',
+          align: 'right',
+          tooltip:
+            'Eaves clear height. Step 4.5 uses it to compute usable rack height (eaves − sprinkler clearance − bottom-beam).',
+        },
       },
       {
         id: 'slabT',
         header: 'Slab t/m²',
         accessorFn: (r) => r.floor.slabLoadingTPerM2,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: {
+          kind: 'readonly',
+          align: 'right',
+          tooltip:
+            'Slab uniform-load capacity (t/m²). Step 11 compares it to peak rack + MHE static load.',
+        },
       },
       {
         id: 'seismicCat',
         header: 'Seismic cat',
         accessorFn: (r) => r.seismic.designCategory,
-        meta: { kind: 'readonly' },
+        meta: {
+          kind: 'readonly',
+          tooltip:
+            'Design category (A=lowest, F=highest). Drives Step 4.6 allowable seismic mass and rack anchorage / bracing.',
+        },
       },
       {
         id: 'windKmh',
         header: 'Wind km/h',
         accessorFn: (r) => r.typhoon.designWindSpeedKmh,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: {
+          kind: 'readonly',
+          align: 'right',
+          tooltip:
+            'Design wind speed for cladding & roof. Phase 11 surfaces this as a typhoon-zone flag.',
+        },
       },
       {
         id: 'plinthM',
         header: 'Plinth m',
         accessorFn: (r) => r.monsoon.plinthHeightM,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: {
+          kind: 'readonly',
+          align: 'right',
+          tooltip:
+            'Plinth height above grade — monsoon flood resilience. Critical for VN / MY / ID sites in flood return zones.',
+        },
       },
       {
         id: 'genKva',
         header: 'Backup kVA',
         accessorFn: (r) => r.power.backupGeneratorKva,
-        meta: { kind: 'readonly', align: 'right' },
+        meta: {
+          kind: 'readonly',
+          align: 'right',
+          tooltip:
+            'Backup-generator capacity. Must cover MHE charging + lighting + WMS + cold-chain. Mandatory in ID; advisory elsewhere.',
+        },
       },
     ],
     []
