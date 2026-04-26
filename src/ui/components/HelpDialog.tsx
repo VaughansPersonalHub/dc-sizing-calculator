@@ -9,8 +9,10 @@
 // extra <Section> blocks here pulling from src/ui/help/content.ts.
 
 import { useEffect, useRef, type ComponentType } from 'react';
-import { X, Keyboard, Map as MapIcon, BookOpen } from 'lucide-react';
+import { X, Keyboard, Map as MapIcon, BookOpen, Cpu } from 'lucide-react';
 import { KEYBOARD_SHORTCUTS, TAB_MAP, GLOSSARY } from '../help/content';
+import { STEP_EXPLAINERS } from '../help/step-explainers';
+import { StepExplainerCard } from './StepExplainer';
 
 interface HelpDialogProps {
   open: boolean;
@@ -104,6 +106,19 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
                 </li>
               ))}
             </ul>
+          </Section>
+
+          <Section icon={Cpu} title="Engine steps · how each one works">
+            <p className="text-xs text-muted-foreground mb-3">
+              One card per engine step (Step 0 → Step 14). Click to expand for the
+              formula, inputs, outputs, assumptions, and sensitivity. Anchor URLs
+              like <code>#step-7-labour</code> jump straight to a step.
+            </p>
+            <div className="space-y-2">
+              {STEP_EXPLAINERS.map((s) => (
+                <StepExplainerCard key={s.id} data={s} />
+              ))}
+            </div>
           </Section>
 
           <Section icon={BookOpen} title="Glossary">
