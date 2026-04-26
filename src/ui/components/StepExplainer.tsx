@@ -96,6 +96,14 @@ export function StepExplainerCard({
           <Section label="Sensitivity">
             <span className="text-foreground">{data.sensitivity}</span>
           </Section>
+
+          <Section label="Ways it could be wrong (what this step does NOT model)">
+            <ul className="list-disc list-outside pl-4 space-y-0.5 text-amber-700 dark:text-amber-400">
+              {data.caveats.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </Section>
         </div>
       )}
     </div>

@@ -43,6 +43,11 @@ describe('Phase 10.2 — STEP_EXPLAINERS dataset', () => {
       expect(s.outputs.length).toBeGreaterThan(0);
       expect(s.assumptions.length).toBeGreaterThan(0);
       expect(s.sensitivity.length).toBeGreaterThan(10);
+      // Phase 10.3 — every step must declare its limitations.
+      expect(s.caveats.length).toBeGreaterThan(0);
+      for (const c of s.caveats) {
+        expect(c.length).toBeGreaterThan(20);
+      }
     }
   });
 
@@ -76,7 +81,14 @@ describe('Phase 10.2 — StepExplainerCard', () => {
     expect(screen.getByText(/Inputs/i)).toBeInTheDocument();
     expect(screen.getByText(/Outputs/i)).toBeInTheDocument();
     expect(screen.getByText(/Assumptions baked in/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sensitivity/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Sensitivity$/i)).toBeInTheDocument();
+    // Phase 10.3 — caveats section always rendered when expanded.
+    expect(screen.getByText(/Ways it could be wrong/i)).toBeInTheDocument();
+    // Spot-check a caveat string unique to the caveats section (the
+    // Phase-10.4 future-work note only lives there, never in assumptions).
+    expect(
+      screen.getByText(/Phase 10\.4 will generalise the Ramadan derate/i)
+    ).toBeInTheDocument();
   });
 
   it('respects defaultOpen=true', () => {

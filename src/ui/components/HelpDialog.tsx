@@ -9,9 +9,10 @@
 // extra <Section> blocks here pulling from src/ui/help/content.ts.
 
 import { useEffect, useRef, type ComponentType } from 'react';
-import { X, Keyboard, Map as MapIcon, BookOpen, Cpu } from 'lucide-react';
+import { X, Keyboard, Map as MapIcon, BookOpen, Cpu, AlertTriangle, FileText } from 'lucide-react';
 import { KEYBOARD_SHORTCUTS, TAB_MAP, GLOSSARY } from '../help/content';
 import { STEP_EXPLAINERS } from '../help/step-explainers';
+import { CITATIONS } from '../help/citations';
 import { StepExplainerCard } from './StepExplainer';
 
 interface HelpDialogProps {
@@ -111,14 +112,84 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
           <Section icon={Cpu} title="Engine steps · how each one works">
             <p className="text-xs text-muted-foreground mb-3">
               One card per engine step (Step 0 → Step 14). Click to expand for the
-              formula, inputs, outputs, assumptions, and sensitivity. Anchor URLs
-              like <code>#step-7-labour</code> jump straight to a step.
+              formula, inputs, outputs, assumptions, sensitivity, and the
+              <strong> ways it could be wrong</strong>. Anchor URLs like{' '}
+              <code>#step-7-labour</code> jump straight to a step.
             </p>
             <div className="space-y-2">
               {STEP_EXPLAINERS.map((s) => (
                 <StepExplainerCard key={s.id} data={s} />
               ))}
             </div>
+          </Section>
+
+          <Section icon={AlertTriangle} title="Ways it could be wrong (consolidated)">
+            <p className="text-xs text-muted-foreground mb-3">
+              Every caveat from every engine step in one place — for the sceptical
+              reviewer who wants to know what the engine does NOT model before
+              they trust the numbers. Use the per-step cards above for context;
+              this section is the high-level summary.
+            </p>
+            <ul className="space-y-3">
+              {STEP_EXPLAINERS.map((s) => (
+                <li key={s.id}>
+                  <h4 className="text-xs font-semibold mb-1">
+                    <a
+                      href={`#${s.id}`}
+                      className="text-foreground hover:underline"
+                    >
+                      {s.title}
+                    </a>
+                  </h4>
+                  <ul className="list-disc list-outside pl-5 space-y-0.5 text-xs text-amber-700 dark:text-amber-400">
+                    {s.caveats.map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </Section>
+
+          <Section icon={FileText} title="Sources & citations">
+            <p className="text-xs text-muted-foreground mb-3">
+              Where the load-bearing default values come from. If a number isn&apos;t
+              cited here it&apos;s an internal SPEC heuristic — flagged as such on the
+              relevant step explainer.
+            </p>
+            <ul className="space-y-3 text-xs">
+              {CITATIONS.map((c) => (
+                <li key={c.topic} className="rounded-md border border-border bg-card p-3">
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <h4 className="font-semibold">{c.topic}</h4>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+                      {c.consumedBy.join(' · ')}
+                    </span>
+                  </div>
+                  <p className="font-mono text-[11px] mb-1">{c.value}</p>
+                  <p className="text-muted-foreground">
+                    <strong>{c.source}</strong> — {c.reference}
+                  </p>
+                  {c.url && (
+                    <p className="mt-1">
+                      <a
+                        href={c.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-scc-gold hover:underline text-[11px] font-mono"
+                      >
+                        {c.url}
+                      </a>
+                    </p>
+                  )}
+                  {c.notes && (
+                    <p className="mt-1 text-[11px] text-muted-foreground italic">
+                      {c.notes}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
           </Section>
 
           <Section icon={BookOpen} title="Glossary">
