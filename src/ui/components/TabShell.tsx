@@ -11,6 +11,8 @@ import {
   Package,
   HelpCircle,
   MessageSquare,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useUIStore, type TabId } from '../../stores';
 import { useEngagementStore } from '../../stores/engagement.store';
@@ -28,6 +30,7 @@ import { CommentsPanel } from './CommentsPanel';
 import { hasSeenTour } from '../help/tour-steps';
 import { Tooltip } from './Tooltip';
 import { commentSummary } from '../../utils/comments';
+import { useReviewerMode } from '../../utils/reviewer-mode';
 
 import { EngagementsTab } from '../tabs/EngagementsTab';
 import { InputsTab } from '../tabs/InputsTab';
@@ -65,6 +68,7 @@ export function TabShell() {
   const [tourOpen, setTourOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsBumper, setCommentsBumper] = useState(0);
+  const [reviewerMode, setReviewerMode] = useReviewerMode();
 
   // Refresh the comment-count chip whenever the panel closes — writes
   // happen in the panel; the count is read from localStorage on
@@ -128,6 +132,33 @@ export function TabShell() {
           engagementId={activeEngagementId}
           skuCount={skuCount}
         />
+        <Tooltip
+          content={
+            <span>
+              Reviewer mode {reviewerMode ? 'on' : 'off'} — when on, every step
+              explainer expands by default so formulas, citations, and intermediate
+              values are visible without a click. Persists across reloads.
+            </span>
+          }
+          side="bottom"
+        >
+          <button
+            type="button"
+            onClick={() => setReviewerMode(!reviewerMode)}
+            aria-pressed={reviewerMode}
+            aria-label={reviewerMode ? 'Disable reviewer mode' : 'Enable reviewer mode'}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium border transition',
+              reviewerMode
+                ? 'border-scc-gold bg-scc-charcoal text-scc-gold'
+                : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
+            )}
+          >
+            {reviewerMode ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            {reviewerMode ? 'Reviewer' : 'Reviewer mode'}
+          </button>
+        </Tooltip>
+
         <Tooltip
           content={
             activeEngagementId ? (

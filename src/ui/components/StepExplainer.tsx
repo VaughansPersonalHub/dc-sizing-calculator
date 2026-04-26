@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { StepExplainer } from '../help/step-explainers';
+import { useReviewerMode } from '../../utils/reviewer-mode';
 import { cn } from '../../utils/cn';
 
 interface StepExplainerCardProps {
@@ -26,7 +27,8 @@ export function StepExplainerCard({
   headingLevel = 'h4',
   className,
 }: StepExplainerCardProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [reviewerMode] = useReviewerMode();
+  const [open, setOpen] = useState(defaultOpen || reviewerMode);
   const Heading = headingLevel;
 
   return (
